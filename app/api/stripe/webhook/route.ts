@@ -25,6 +25,23 @@ function getUserId(metadata: Stripe.Metadata | null): string | null {
   return metadata?.userId ?? null
 }
 
+// Na API 2026-02-25.clover o campo invoice.subscription foi movido para
+// invoice.parent.subscription_details.subscription. Este helper suporta ambas as versões.
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const inv = invoice as any
+  return (
+    inv.parent?.subscription_details?.subscription ??
+    inv.subscription ??
+    null
+  )
+}
+
+// billing_reason também pode estar em inv.billing_details.type nas versões mais recentes
+function getInvoiceBillingReason(invoice: Stripe.Invoice): string | null {
+  const inv = invoice as any
+  return inv.billing_reason ?? inv.billing_details?.type ?? null
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = request.headers.get("stripe-signature") ?? ""
@@ -58,8 +75,14 @@ export async function POST(request: NextRequest) {
 
         if (session.mode !== "subscription") break
 
-        // Não ativa se o pagamento ainda não liquidou (ex: boleto pendente)
-        if (session.payment_status !== "paid") {
+        // Aceita tanto "paid" (pagamento normal) quanto "no_payment_required"
+        // (cupom 100%, período gratuito, valor zerado).
+        // Adia apenas se o pagamento está genuinamente pendente (ex: boleto).
+        const paymentOk =
+          session.payment_status === "paid" ||
+          session.payment_status === "no_payment_required"
+
+        if (!paymentOk) {
           console.log(`[webhook] Session ${session.id} — payment_status=${session.payment_status}, aguardando invoice.paid`)
           break
         }
@@ -91,9 +114,10 @@ export async function POST(request: NextRequest) {
       // ---------------------------------------------------------------
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = invoice.subscription as string | null
+        const subscriptionId = getInvoiceSubscriptionId(invoice)
+        const billingReason = getInvoiceBillingReason(invoice)
 
-        if (!subscriptionId || invoice.billing_reason === "subscription_create") {
+        if (!subscriptionId || billingReason === "subscription_create") {
           // subscription_create é coberto pelo checkout.session.completed
           break
         }
@@ -163,7 +187,7 @@ export async function POST(request: NextRequest) {
       // ---------------------------------------------------------------
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = invoice.subscription as string | null
+        const subscriptionId = getInvoiceSubscriptionId(invoice)
 
         if (!subscriptionId) break
 
