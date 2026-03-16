@@ -10,8 +10,12 @@ import {
   sendPasswordResetEmail,
   updatePassword,
   updateProfile,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  getAuth,
 } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { initializeApp, deleteApp } from "firebase/app"
+import { auth, app as firebaseApp } from "@/lib/firebase"
 import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
@@ -296,12 +300,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
-      if (!auth || !auth.currentUser) {
+      if (!auth || !auth.currentUser || !auth.currentUser.email) {
         throw new Error("Usuário não autenticado ou Firebase não configurado")
       }
 
-      // Em uma implementação real, você precisaria reautenticar o usuário primeiro
-      // Esta é uma simplificação
+      // Reautentica com a senha atual antes de permitir a troca
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+
       await updatePassword(auth.currentUser, newPassword)
       return true
     } catch (error) {
@@ -311,12 +317,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const createCollaborator = async (name: string, email: string, password: string): Promise<boolean> => {
+    // Usa um app Firebase secundário para criar o colaborador sem deslogar o admin.
+    // createUserWithEmailAndPassword no app principal troca a sessão ativa — o app
+    // secundário é isolado e descartado logo após o uso.
+    const secondaryApp = initializeApp(firebaseApp.options, `collab-${Date.now()}`)
+    const secondaryAuth = getAuth(secondaryApp)
+
     try {
       if (!user || user.role !== "admin") {
         throw new Error("Apenas administradores podem criar colaboradores")
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
       const firebaseUser = userCredential.user
 
       await updateProfile(firebaseUser, { displayName: name })
@@ -337,13 +349,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date(),
       })
 
-      await signOut(auth)
-      // O onAuthStateChanged vai reautenticar o admin automaticamente
-
+      await signOut(secondaryAuth)
       return true
     } catch (error) {
       console.error("Erro ao criar colaborador:", error)
       return false
+    } finally {
+      await deleteApp(secondaryApp)
     }
   }
 
