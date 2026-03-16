@@ -20,7 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Quantidade de caminhões inválida" }, { status: 400 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    // Deriva a URL base a partir do próprio request — funciona em qualquer ambiente
+    // (localhost, preview do Vercel, produção) sem depender de variável de ambiente.
+    const proto = request.headers.get("x-forwarded-proto") ?? "https"
+    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "localhost:3000"
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`
     const maxTrucks = planType === "basic" ? PLAN_PRICES.basic.maxTrucks : truckCount
 
     // --- Busca stripe_customer_id salvo no Firestore (evita lookup por email) ---
