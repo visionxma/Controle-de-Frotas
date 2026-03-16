@@ -66,6 +66,14 @@
     "vaul": "latest",
     "zod": "3.25.76"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "core-js",
+      "protobufjs",
+      "sharp"
+    ]
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
