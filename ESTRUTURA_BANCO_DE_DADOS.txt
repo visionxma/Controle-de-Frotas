@@ -1,0 +1,505 @@
+================================================================================
+    ESTRUTURA COMPLETA DO BANCO DE DADOS - SISTEMA DE GESTÃO DE FROTAS
+================================================================================
+
+TECNOLOGIA UTILIZADA: 
+- Firebase Firestore (Banco de dados NoSQL)
+- Firebase Storage (Armazenamento de imagens)
+- Firebase Authentication (Autenticação de usuários)
+
+PROJETO FIREBASE:
+- Project ID: controledefrotas-a21b7
+- Storage Bucket: controledefrotas-a21b7.firebasestorage.app
+- Auth Domain: controledefrotas-a21b7.firebaseapp.com
+
+================================================================================
+COLEÇÕES DO FIRESTORE
+================================================================================
+
+1. USERS (Usuários Administradores)
+   Caminho: /users/{userId}
+   
+   Estrutura:
+   {
+     name: string,                    // Nome completo do usuário
+     email: string,                   // E-mail de acesso
+     company: string,                 // Nome da empresa
+     role: "admin",                   // Sempre "admin" nesta coleção
+     permissions: {
+       canCreate: boolean,            // Permissão para criar registros
+       canRead: boolean,              // Permissão para ler registros
+       canUpdate: boolean,            // Permissão para atualizar registros
+       canDelete: boolean             // Permissão para deletar registros
+     },
+     createdAt: timestamp             // Data de criação
+   }
+   
+   Como é Salvo:
+   - Criado automaticamente ao registrar um novo usuário via função register()
+   - Usa o UID do Firebase Authentication como ID do documento
+   - setDoc() do Firestore com o caminho /users/{firebaseUser.uid}
+   
+   Como é Puxado:
+   - onAuthStateChanged() monitora mudanças de autenticação
+   - getDoc() busca documento específico em /users/{userId}
+   - Se não encontrado em users, busca em collaborators
+
+   Regras de Segurança:
+   - Leitura: Qualquer usuário autenticado
+   - Criação: Qualquer usuário autenticado
+   - Atualização/Exclusão: Apenas o próprio usuário
+
+================================================================================
+
+2. COLLABORATORS (Colaboradores)
+   Caminho: /collaborators/{collaboratorId}
+   
+   Estrutura:
+   {
+     name: string,                    // Nome completo do colaborador
+     email: string,                   // E-mail de acesso
+     adminId: string,                 // ID do admin que criou este colaborador
+     adminEmail: string,              // E-mail do admin
+     company: string,                 // Nome da empresa (herdado do admin)
+     role: "collaborator",            // Sempre "collaborator"
+     permissions: {
+       canCreate: boolean,            // Geralmente true
+       canRead: boolean,              // Sempre true
+       canUpdate: boolean,            // Geralmente false
+       canDelete: boolean             // Geralmente false
+     },
+     deleted: boolean,                // Flag para soft delete (opcional)
+     createdAt: timestamp             // Data de criação
+   }
+   
+   Como é Salvo:
+   - Criado pelo admin via função createCollaborator()
+   - Usa o UID do Firebase Authentication como ID do documento
+   - setDoc() do Firestore com o caminho /collaborators/{firebaseUser.uid}
+   
+   Como é Puxado:
+   - Query por adminId: where("adminId", "==", adminId)
+   - Filtra documentos com deleted: false
+   - getDocs() retorna lista de colaboradores do admin
+   
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+
+3. TRUCKS (Caminhões)
+   Caminho: /trucks/{truckId}
+   
+   Estrutura:
+   {
+     plate: string,                   // Placa do caminhão
+     brand: string,                   // Marca (ex: Volvo, Scania)
+     model: string,                   // Modelo do caminhão
+     year: number,                    // Ano de fabricação
+     color: string,                   // Cor do veículo
+     status: string,                  // "active" | "maintenance" | "inactive"
+     mileage: number,                 // Quilometragem atual do veículo
+     userId: string,                  // ID do usuário que criou
+     adminId: string,                 // ID do admin (se criado por colaborador)
+     createdBy: string,               // Nome de quem criou
+     createdByRole: string,           // "admin" | "collaborator"
+     totalFuelLiters: number,         // Total de combustível consumido (acumulado)
+     fuelCapacity: number,            // Capacidade do tanque em litros
+     currentFuelLevel: number,        // Nível atual de combustível
+     createdAt: timestamp,            // Data de criação
+     updatedAt: timestamp             // Data de última atualização
+   }
+   
+   Como é Salvo:
+   - addDoc() adiciona novo documento em /trucks
+   - ID gerado automaticamente pelo Firestore
+   - Inclui userId, adminId (se colaborador) e metadados de criação
+   
+   Como é Puxado:
+   - Para Admin: where("userId", "==", userId) OR where("adminId", "==", userId)
+   - Para Colaborador: where("userId", "==", userId) OR where("userId", "==", adminId)
+   - onSnapshot() para atualizações em tempo real
+   
+   Operações Especiais:
+   - updateTruck(): updateDoc() para atualizar dados
+   - incrementTotalFuel(): increment() para adicionar combustível ao total
+   - updateFuelLevel(): Atualiza nível de combustível após viagem
+   
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+
+4. DRIVERS (Motoristas)
+   Caminho: /drivers/{driverId}
+   
+   Estrutura:
+   {
+     name: string,                    // Nome completo
+     cpf: string,                     // CPF do motorista
+     cnh: string,                     // Número da CNH
+     cnhCategory: string,             // Categoria da CNH (A, B, C, D, E)
+     cnhExpiry: string,               // Data de validade da CNH
+     phone: string,                   // Telefone de contato
+     email: string,                   // E-mail (opcional)
+     address: string,                 // Endereço (opcional)
+     birthDate: string,               // Data de nascimento
+     status: string,                  // "active" | "inactive" | "suspended"
+     userId: string,                  // ID do usuário que criou
+     adminId: string,                 // ID do admin (se criado por colaborador)
+     createdBy: string,               // Nome de quem criou
+     createdByRole: string,           // "admin" | "collaborator"
+     createdAt: timestamp,            // Data de criação
+     updatedAt: timestamp             // Data de última atualização
+   }
+   
+   Como é Salvo:
+   - Verifica se CPF já existe: where("userId", "==", userId) AND where("cpf", "==", cpf)
+   - addDoc() adiciona novo documento em /drivers
+   - Retorna false se CPF duplicado
+   
+   Como é Puxado:
+   - Para Admin: where("userId", "==", userId) OR where("adminId", "==", userId)
+   - Para Colaborador: where("userId", "==", userId) OR where("userId", "==", adminId)
+   - onSnapshot() para atualizações em tempo real
+   
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+
+5. TRIPS (Viagens)
+   Caminho: /trips/{tripId}
+   
+   Estrutura:
+   {
+     truckId: string,                 // ID do caminhão usado
+     truckPlate: string,              // Placa do caminhão (denormalizado)
+     driverId: string,                // ID do motorista
+     driverName: string,              // Nome do motorista (denormalizado)
+     startLocation: string,           // Local de partida
+     endLocation: string,             // Local de chegada
+     startKm: number,                 // Quilometragem inicial
+     endKm: number,                   // Quilometragem final
+     startDate: string,               // Data de início (YYYY-MM-DD)
+     startTime: string,               // Hora de início (HH:MM)
+     endDate: string,                 // Data de término (YYYY-MM-DD)
+     endTime: string,                 // Hora de término (HH:MM)
+     refuelingLiters: number,         // Quantidade de combustível abastecida
+     fuelConsumption: number,         // Consumo médio em km/L (manual)
+     status: string,                  // "in_progress" | "completed"
+     cargoDescription: string,        // Descrição da carga transportada
+     photos: [                        // Array de fotos da viagem
+       {
+         id: string,                  // ID único da foto
+         url: string,                 // URL do Firebase Storage
+         thumbnailUrl: string,        // URL da thumbnail (opcional)
+         uploadedAt: string,          // Data/hora do upload (ISO string)
+         description: string,         // Descrição da foto
+         type: string                 // "cargo" | "receipt" | "other"
+       }
+     ],
+     userId: string,                  // ID do usuário que criou
+     adminId: string,                 // ID do admin (se criado por colaborador)
+     createdBy: string,               // Nome de quem criou
+     createdByRole: string,           // "admin" | "collaborator"
+     createdAt: timestamp,            // Data de criação
+     updatedAt: timestamp             // Data de última atualização
+   }
+   
+   Como é Salvo:
+   - addDoc() cria viagem com status "in_progress"
+   - updateDoc() ao completar a viagem:
+     * Adiciona endKm, endLocation, endDate, endTime
+     * Adiciona refuelingLiters e fuelConsumption
+     * Muda status para "completed"
+     * Atualiza mileage do caminhão
+     * Incrementa totalFuelLiters do caminhão
+     * Atualiza currentFuelLevel do caminhão
+   
+   Como é Puxado:
+   - Para Admin: where("userId", "==", userId) OR where("adminId", "==", userId)
+   - Para Colaborador: where("userId", "==", userId) OR where("userId", "==", adminId)
+   - Ordenação: Por startDate decrescente
+   - onSnapshot() para atualizações em tempo real
+   
+   Cálculos Automáticos:
+   - Distância percorrida: endKm - startKm
+   - Combustível consumido: distância / fuelConsumption
+   - Combustível restante: refuelingLiters - combustívelConsumido
+   
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+
+6. TRANSACTIONS (Transações Financeiras)
+   Caminho: /transactions/{transactionId}
+   
+   Estrutura:
+   {
+     type: string,                    // "receita" | "despesa"
+     description: string,             // Descrição da transação
+     amount: number,                  // Valor em reais
+     date: string,                    // Data da transação (YYYY-MM-DD)
+     category: string,                // Categoria da transação
+     truckId: string,                 // ID do caminhão relacionado (opcional)
+     driverId: string,                // ID do motorista relacionado (opcional)
+     tripId: string,                  // ID da viagem relacionada (opcional)
+     rentalId: string,                // ID da locação relacionada (opcional)
+     userId: string,                  // ID do usuário que criou
+     adminId: string,                 // ID do admin (se criado por colaborador)
+     createdBy: string,               // Nome de quem criou
+     createdByRole: string,           // "admin" | "collaborator"
+     createdAt: timestamp,            // Data de criação
+     updatedAt: timestamp             // Data de última atualização
+   }
+   
+   Como é Salvo:
+   - addDoc() adiciona nova transação
+   - Remove campos undefined antes de salvar
+   - Campos opcionais: truckId, driverId, tripId, rentalId
+   
+   Como é Puxado:
+   - Para Admin: where("userId", "==", userId) OR where("adminId", "==", userId)
+   - Para Colaborador: where("userId", "==", userId) OR where("userId", "==", adminId)
+   - Ordenação: Por date decrescente
+   - onSnapshot() para atualizações em tempo real
+   
+   Funções de Análise:
+   - getMonthlyStats(): Receitas, despesas e lucro do mês atual
+   - getChartData(): Dados dos últimos 6 meses para gráficos
+   - getFilteredStats(): Estatísticas filtradas por período e entidade
+   - getFilteredChartData(): Dados filtrados para gráficos
+   
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+FIREBASE STORAGE
+================================================================================
+
+FOTOS DE VIAGENS
+Caminho: /trips/{tripId}/{timestamp}_{randomId}_{fileName}
+
+Estrutura de Armazenamento:
+- Bucket: controledefrotas-a21b7.firebasestorage.app
+- Pasta raiz: trips/
+- Subpasta por viagem: trips/{tripId}/
+- Nome do arquivo: {timestamp}_{randomId}_{sanitizedFileName}
+
+Metadados do Arquivo:
+{
+  contentType: string,               // MIME type (image/jpeg, image/png, etc.)
+  customMetadata: {
+    tripId: string,                  // ID da viagem
+    uploadedBy: string,              // ID do usuário que fez upload
+    description: string,             // Descrição da foto
+    type: string                     // "cargo" | "receipt" | "other"
+  }
+}
+
+Como é Salvo:
+1. Validação do arquivo:
+   - Verifica se é imagem (image/*)
+   - Limite de 5MB por arquivo
+2. Sanitização do nome:
+   - Remove caracteres especiais
+   - Substitui espaços por underscores
+3. Upload:
+   - ref() cria referência no Storage
+   - uploadBytes() envia o arquivo
+   - getDownloadURL() obtém URL pública
+4. Atualização do Firestore:
+   - updateDoc() adiciona foto ao array photos[] da viagem
+
+Como é Puxado:
+- URLs são armazenadas no array photos[] da viagem
+- Acesso direto via URL pública do Firebase Storage
+- getDownloadURL() para obter URL de acesso
+
+Como é Deletado:
+1. Extrai caminho do arquivo da URL
+2. ref() cria referência ao arquivo
+3. deleteObject() remove do Storage
+4. updateDoc() remove entrada do array photos[] no Firestore
+
+Regras de Segurança Storage:
+- Leitura: Qualquer usuário autenticado
+- Escrita: Apenas em pasta trips/{tripId}/
+- Upload: Apenas usuários autenticados
+- Limite: 5MB por arquivo
+- Tipos permitidos: image/* (JPEG, PNG, WebP, etc.)
+
+================================================================================
+FLUXOS DE DADOS PRINCIPAIS
+================================================================================
+
+1. FLUXO DE CRIAÇÃO DE VIAGEM:
+   [Usuário] → trip-form.tsx → useTrips.addTrip()
+   → addDoc(/trips) → Firestore
+   → onSnapshot() → Atualização em tempo real na UI
+
+2. FLUXO DE FINALIZAÇÃO DE VIAGEM:
+   [Usuário] → complete-trip.tsx → useTrips.completeTrip()
+   → updateDoc(/trips/{tripId}) (adiciona dados de finalização)
+   → useTrucks.updateTruck() (atualiza quilometragem)
+   → useTrucks.incrementTotalFuel() (incrementa combustível total)
+   → useTrucks.updateFuelLevel() (atualiza nível de combustível)
+   → Firestore atualiza múltiplos documentos
+   → onSnapshot() → Atualização em tempo real
+
+3. FLUXO DE UPLOAD DE FOTOS:
+   [Usuário seleciona foto] → trip-photo-gallery.tsx
+   → useTripPhotos.uploadPhoto()
+   → Validação (tipo, tamanho)
+   → Firebase Storage (uploadBytes)
+   → getDownloadURL() → Obtém URL
+   → updateDoc(/trips/{tripId}) → Adiciona ao array photos[]
+   → onSnapshot() → Foto aparece na galeria
+
+4. FLUXO DE AUTENTICAÇÃO:
+   [Login] → auth-context.tsx → login()
+   → signInWithEmailAndPassword() → Firebase Auth
+   → onAuthStateChanged() detecta mudança
+   → getDoc(/users/{uid}) ou getDoc(/collaborators/{uid})
+   → Carrega dados do usuário
+   → setUser() → Estado global atualizado
+   → UI renderiza com permissões corretas
+
+5. FLUXO DE ANÁLISE FINANCEIRA:
+   [Dashboard] → useTransactions()
+   → onSnapshot(/transactions) → Carrega todas transações
+   → getFilteredStats() → Filtra por período/caminhão/motorista
+   → Calcula receitas, despesas, lucro
+   → Renderiza cards e gráficos em tempo real
+
+================================================================================
+QUERIES IMPORTANTES E PERFORMANCE
+================================================================================
+
+1. QUERIES COM INDICES COMPOSTOS:
+   
+   drivers:
+   - userId + cpf (verificação de CPF duplicado)
+   
+   Todos as coleções principais:
+   - userId (queries de admin)
+   - adminId (queries de colaborador)
+   - OR queries precisam de índice composto
+
+2. LISTENERS EM TEMPO REAL (onSnapshot):
+   - Todas as coleções usam onSnapshot() para atualizações em tempo real
+   - Automaticamente se desinscreve ao desmontar componente
+   - Performance: Firestore envia apenas documentos que mudaram
+
+3. OTIMIZAÇÕES:
+   - Denormalização: truckPlate e driverName salvos em trips
+     (evita joins/lookups adicionais)
+   - Soft delete: collaborators usam flag "deleted" em vez de exclusão física
+   - Incrementos atômicos: increment() para totalFuelLiters evita race conditions
+   - Filtros no cliente: getFilteredStats() filtra no JavaScript após carregar dados
+
+4. LIMITAÇÕES E CONSIDERAÇÕES:
+   - Firestore limita 1 leitura/escrita por documento por segundo
+   - onSnapshot usa conexão WebSocket persistente
+   - Queries OR são suportadas mas exigem índices
+   - Máximo 10 OR clauses por query
+
+================================================================================
+SEGURANÇA E PERMISSÕES
+================================================================================
+
+REGRAS DO FIRESTORE (firestore.rules):
+
+Funções Auxiliares:
+- isAuthenticated(): Verifica se usuário está logado
+- isAdmin(): Verifica se é admin
+- isOwner(): Verifica se é dono do documento
+- isAdminOfCollaborator(): Verifica se é admin do colaborador
+
+Permissões por Coleção:
+- users: Leitura livre, escrita apenas para o próprio usuário
+- collaborators: Leitura/escrita livre para autenticados
+- drivers, trucks, trips, transactions: Leitura/escrita livre para autenticados
+
+REGRAS DO STORAGE (firestore-storage.rules):
+
+Permissões:
+- Leitura: Qualquer usuário autenticado
+- Escrita: Apenas em pasta trips/{tripId}/
+- Validação: Apenas imagens, máximo 5MB
+- Exclusão: Apenas usuário autenticado
+
+HIERARQUIA DE ACESSO:
+1. Admin: Vê seus próprios dados + dados de seus colaboradores
+2. Colaborador: Vê dados do admin + seus próprios dados
+3. Usuário individual: Vê apenas seus próprios dados
+
+IMPLEMENTAÇÃO NO CÓDIGO:
+if (user.role === "admin") {
+  // OR query: userId == user.id OR adminId == user.id
+} else if (user.role === "collaborator" && user.adminId) {
+  // OR query: userId == user.id OR userId == user.adminId
+} else {
+  // Simples: userId == user.id
+}
+
+================================================================================
+BACKUP E RECUPERAÇÃO
+================================================================================
+
+Hook: use-backup.ts
+
+Funcionalidades:
+- exportData(): Exporta todas as coleções para JSON
+- importData(): Importa dados de arquivo JSON
+- Validação de integridade dos dados
+- Preserva IDs originais durante importação
+
+Formato de Backup:
+{
+  exportDate: "ISO timestamp",
+  version: "1.0",
+  data: {
+    users: [...],
+    collaborators: [...],
+    trucks: [...],
+    drivers: [...],
+    trips: [...],
+    transactions: [...]
+  }
+}
+
+Notas:
+- Storage não é incluído no backup automático
+- Fotos devem ser baixadas manualmente ou via script separado
+
+================================================================================
+RELATÓRIOS PDF
+================================================================================
+
+Hook: use-pdf-reports.ts
+
+Tipos de Relatórios:
+1. Relatório de Viagens
+2. Relatório Financeiro
+3. Relatório de Caminhões
+4. Relatório de Motoristas
+
+Dados Incluídos:
+- Informações da empresa
+- Período do relatório
+- Estatísticas agregadas
+- Tabelas detalhadas
+- Gráficos e visualizações
+
+Geração:
+- Usa biblioteca jsPDF
+- Formatação automática
+- Exporta para arquivo PDF
+- Download direto no navegador
+
+================================================================================
+FIM DA DOCUMENTAÇÃO
+================================================================================

@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------
+    // FUNÇÕES AUXILIARES
+    // -------------------------------
+
+    // Usuário autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Usuário admin - versão simplificada para evitar problemas de permissão circular
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Usuário dono do documento
+    function isOwner(resource) {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Verifica se o usuário é admin do colaborador
+    function isAdminOfCollaborator(resource) {
+      return isAuthenticated() && resource.data.adminId == request.auth.uid;
+    }
+
+    // -------------------------------
+    // USERS
+    // -------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || true);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // -------------------------------
+    // COLLABORATORS
+    // -------------------------------
+    match /collaborators/{collaboratorId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // DRIVERS
+    // -------------------------------
+    match /drivers/{driverId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // MACHINERY
+    // -------------------------------
+    match /machinery/{machineryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // RENTALS
+    // -------------------------------
+    match /rentals/{rentalId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // TRANSACTIONS
+    // -------------------------------
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // TRIPS
+    // -------------------------------
+    match /trips/{tripId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // -------------------------------
+    // TRUCKS
+    // -------------------------------
+    match /trucks/{truckId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+  }
+}

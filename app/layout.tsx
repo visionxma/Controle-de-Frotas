@@ -1,0 +1,66 @@
+import type React from "react"
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { AuthProvider } from "@/contexts/auth-context"
+import { Toaster } from "@/components/ui/toaster"
+import { PWAInstallBanner } from "@/components/pwa-install-banner"
+import { Suspense } from "react"
+import "./globals.css"
+
+const geistSans = Geist({ subsets: ["latin"] })
+const geistMono = Geist_Mono({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Controle de Frotas",
+  description: "Sistema de controle de frotas de caminhões",
+  generator: "v0.app",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "https://i.imgur.com/e9kut4B.png", type: "image/png" },
+      { url: "https://i.imgur.com/e9kut4B.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "https://i.imgur.com/e9kut4B.png", sizes: "192x192", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Controle de Frotas",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Controle de Frotas",
+    title: "Controle de Frotas",
+    description: "Sistema de controle de frotas de caminhões",
+  },
+  twitter: {
+    card: "summary",
+    title: "Controle de Frotas",
+    description: "Sistema de Controle de frotas de caminhões",
+  },
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="pt-BR">
+      <body className={`font-sans ${geistSans.variable} ${geistMono.variable}`}>
+        <Suspense fallback={<div>Loading...</div>}>
+          <AuthProvider>
+            {children}
+            <Toaster />
+            <PWAInstallBanner />
+          </AuthProvider>
+        </Suspense>
+        <Analytics />
+      </body>
+    </html>
+  )
+}
