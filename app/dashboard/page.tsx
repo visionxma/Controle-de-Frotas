@@ -14,6 +14,7 @@ import { Download } from "lucide-react"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { useTransactions } from "@/hooks/use-transactions"
 import { Button } from "@/components/ui/button"
+import { PlanBanner } from "@/components/plan-banner"
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30d")
@@ -45,6 +46,8 @@ export default function DashboardPage() {
     <ProtectedRoute>
       <DashboardLayout>
         <div className="mobile-spacing">
+          <PlanBanner />
+
           <div className="flex items-center justify-between">
             <div>
               <h1 className="font-bold text-balance">Dashboard</h1>
