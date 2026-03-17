@@ -36,6 +36,26 @@ export default function PlansPage() {
     }
   }, [user, isLoading, router])
 
+  // Fallback: se o usuário está logado mas sem assinatura ativa,
+  // verifica no Stripe se existe subscription paga (cobre boleto pago,
+  // webhook que falhou, ou qualquer outra falha de sincronização).
+  useEffect(() => {
+    if (isLoading || !user || user.subscription_status === "active") return
+
+    fetch(`/api/stripe/sync-subscription?userId=${user.id}&email=${encodeURIComponent(user.email)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.activated) {
+          // onSnapshot do auth-context vai detectar a mudança e redirecionar
+          toast.success("Assinatura encontrada e ativada!")
+        }
+      })
+      .catch(() => {
+        // Falha silenciosa — usuário ainda pode escolher plano normalmente
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, user?.id])
+
   const customTotal = customTruckCount * CUSTOM_PRICE_PER_TRUCK
 
   const handleSelectPlan = async (planType: "basic" | "custom") => {

@@ -109,22 +109,52 @@ export async function POST(request: NextRequest) {
       }
 
       // ---------------------------------------------------------------
-      // Fatura paga com sucesso (cobre renovações mensais e boleto/pix)
-      // Este é o evento mais confiável para ativar/manter assinaturas.
+      // Boleto/Pix pago de forma assíncrona após checkout.session.completed.
+      // Este é o evento disparado quando o pagamento assíncrono é confirmado.
+      // ---------------------------------------------------------------
+      case "checkout.session.async_payment_succeeded": {
+        const session = event.data.object as Stripe.Checkout.Session
+
+        if (session.mode !== "subscription") break
+
+        const userId = getUserId(session.metadata)
+        if (!userId) {
+          console.error("[webhook] async_payment_succeeded sem userId nos metadados")
+          break
+        }
+
+        const planType = session.metadata?.planType ?? null
+        const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
+
+        await updateUserSubscription(userId, {
+          subscription_status: "active",
+          plan_type: planType,
+          max_trucks: maxTrucks > 0 ? maxTrucks : null,
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: session.subscription as string,
+        })
+
+        console.log(`[webhook] Boleto/Pix CONFIRMADO — userId=${userId}, plano=${planType}`)
+        break
+      }
+
+      // ---------------------------------------------------------------
+      // Fatura paga — cobre renovações mensais, boleto e cupom 100%.
+      // Não pula mais subscription_create: é o fallback mais confiável
+      // quando outros eventos falham (boleto, webhook reprocessado etc.).
       // ---------------------------------------------------------------
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice
         const subscriptionId = getInvoiceSubscriptionId(invoice)
-        const billingReason = getInvoiceBillingReason(invoice)
 
-        if (!subscriptionId || billingReason === "subscription_create") {
-          // subscription_create é coberto pelo checkout.session.completed
-          break
-        }
+        if (!subscriptionId) break
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId)
         const userId = getUserId(subscription.metadata)
-        if (!userId) break
+        if (!userId) {
+          console.log("[webhook] invoice.paid — subscription sem userId, ignorando")
+          break
+        }
 
         const planType = subscription.metadata?.planType ?? null
         const maxTrucks = parseInt(subscription.metadata?.maxTrucks ?? "0", 10)
@@ -136,7 +166,7 @@ export async function POST(request: NextRequest) {
           stripe_subscription_id: subscription.id,
         })
 
-        console.log(`[webhook] Renovação confirmada — userId=${userId}, plano=${planType}`)
+        console.log(`[webhook] invoice.paid processado — userId=${userId}, plano=${planType}`)
         break
       }
 
