@@ -126,8 +126,8 @@ export default function PlansPage() {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
+  const handleLogout = () => {
+    logout()
     router.push("/login")
   }
 
@@ -154,7 +154,7 @@ export default function PlansPage() {
       <div className="border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Truck className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg">Gestão de Frotas</span>
+          <span className="font-bold text-lg">FroX</span>
         </div>
         <div className="flex items-center gap-4">
           {user && (

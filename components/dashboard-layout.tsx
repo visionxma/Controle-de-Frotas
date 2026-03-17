@@ -52,7 +52,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="h-6 w-6 sm:h-8 sm:w-8"
                 />{" "}
               </div>
-              <span className="text-base sm:text-lg font-bold text-sidebar-foreground">Controle de Frotas</span>
+              <span className="text-base sm:text-lg font-bold text-sidebar-foreground">FroX</span>
             </div>
             <Button
               variant="ghost"

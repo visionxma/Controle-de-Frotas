@@ -51,7 +51,7 @@ export function PWAInstallBanner() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm mb-1">Instalar Controle de Frotas</h3>
+          <h3 className="font-semibold text-sm mb-1">Instalar FroX</h3>
           <p className="text-xs text-muted-foreground mb-3">
             {isMobile
               ? "Adicione o app à sua tela inicial para acesso rápido"
