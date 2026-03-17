@@ -9,7 +9,14 @@ function getAdminDb(): Firestore {
   if (!admin.apps.length) {
     const projectId = process.env.FIREBASE_PROJECT_ID
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n")
+
+    // Aceita a chave nos dois formatos comuns no Vercel:
+    // 1) Com \n literais: "-----BEGIN PRIVATE KEY-----\nMII..."
+    // 2) Com aspas envolvendo o valor: '"-----BEGIN PRIVATE KEY-----\nMII..."'
+    const rawKey = process.env.FIREBASE_PRIVATE_KEY ?? ""
+    const privateKey = rawKey
+      .replace(/^"([\s\S]*)"$/, "$1") // remove aspas externas se existirem
+      .replace(/\\n/g, "\n")          // converte \n literal em quebra de linha real
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error(

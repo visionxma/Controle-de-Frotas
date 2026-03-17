@@ -21,6 +21,8 @@ export default function PlansPage() {
   const [customTruckCount, setCustomTruckCount] = useState(CUSTOM_MIN_TRUCKS)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [loadingPlan, setLoadingPlan] = useState<"basic" | "custom" | null>(null)
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "not_found" | "error">("idle")
+  const [syncError, setSyncError] = useState("")
 
   // Se já tem assinatura ativa, vai para o dashboard
   useEffect(() => {
@@ -42,19 +44,49 @@ export default function PlansPage() {
   useEffect(() => {
     if (isLoading || !user || user.subscription_status === "active") return
 
+    setSyncStatus("syncing")
+
     fetch(`/api/stripe/sync-subscription?userId=${user.id}&email=${encodeURIComponent(user.email)}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.activated) {
-          // onSnapshot do auth-context vai detectar a mudança e redirecionar
-          toast.success("Assinatura encontrada e ativada!")
+          toast.success("Assinatura encontrada! Redirecionando...")
+          // onSnapshot do auth-context detecta a mudança e redireciona
+        } else if (data.error) {
+          setSyncError(data.error)
+          setSyncStatus("error")
+        } else {
+          setSyncStatus("not_found")
         }
       })
-      .catch(() => {
-        // Falha silenciosa — usuário ainda pode escolher plano normalmente
+      .catch((err) => {
+        setSyncError(err?.message ?? "Falha ao verificar pagamento")
+        setSyncStatus("error")
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user?.id])
+
+  const handleRetrySync = () => {
+    if (!user) return
+    setSyncStatus("syncing")
+    setSyncError("")
+    fetch(`/api/stripe/sync-subscription?userId=${user.id}&email=${encodeURIComponent(user.email)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.activated) {
+          toast.success("Assinatura encontrada! Redirecionando...")
+        } else if (data.error) {
+          setSyncError(data.error)
+          setSyncStatus("error")
+        } else {
+          setSyncStatus("not_found")
+        }
+      })
+      .catch((err) => {
+        setSyncError(err?.message ?? "Falha ao verificar pagamento")
+        setSyncStatus("error")
+      })
+  }
 
   const customTotal = customTruckCount * CUSTOM_PRICE_PER_TRUCK
 
@@ -139,6 +171,33 @@ export default function PlansPage() {
 
       {/* Conteúdo */}
       <div className="max-w-4xl mx-auto px-6 py-12">
+        {/* Banner de sincronização */}
+        {syncStatus === "syncing" && (
+          <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+            Verificando se você já possui um pagamento aprovado...
+          </div>
+        )}
+
+        {syncStatus === "error" && (
+          <div className="mb-8 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm">
+            <p className="font-medium text-destructive mb-1">Erro ao verificar pagamento</p>
+            <p className="text-muted-foreground mb-2">{syncError}</p>
+            <Button variant="outline" size="sm" onClick={handleRetrySync}>
+              Tentar novamente
+            </Button>
+          </div>
+        )}
+
+        {syncStatus === "not_found" && (
+          <div className="mb-8 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-4">
+            <span>Nenhuma assinatura ativa encontrada. Escolha um plano abaixo para continuar.</span>
+            <Button variant="ghost" size="sm" onClick={handleRetrySync} className="shrink-0">
+              Verificar novamente
+            </Button>
+          </div>
+        )}
+
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-3">Escolha seu plano</h1>
           <p className="text-muted-foreground text-lg">
