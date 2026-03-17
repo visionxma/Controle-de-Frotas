@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "https://i.imgur.com/e9kut4B.png", type: "image/png" },
-      { url: "https://i.imgur.com/e9kut4B.png", sizes: "32x32", type: "image/png" },
+      { url: "https://imgur.com/a/hRtZkfJ", type: "image/png" },
+      { url: "https://imgur.com/a/hRtZkfJ", sizes: "32x32", type: "image/png" },
     ],
-    apple: [{ url: "https://i.imgur.com/e9kut4B.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "https://imgur.com/a/hRtZkfJ", sizes: "192x192", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
