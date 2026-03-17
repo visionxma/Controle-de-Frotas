@@ -12,7 +12,7 @@ const geistSans = Geist({ subsets: ["latin"] })
 const geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Controle de Frotas",
+  title: "FroX - Controle de Frotas",
   description: "Sistema de controle de frotas de caminhões",
   generator: "v0.app",
   manifest: "/manifest.json",
@@ -26,20 +26,20 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Controle de Frotas",
+    title: "FroX - Controle de Frotas",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: "website",
-    siteName: "Controle de Frotas",
-    title: "Controle de Frotas",
+    siteName: "FroX - Controle de Frotas",
+    title: "FroX - Controle de Frotas",
     description: "Sistema de controle de frotas de caminhões",
   },
   twitter: {
     card: "summary",
-    title: "Controle de Frotas",
+    title: "FroX - Controle de Frotas",
     description: "Sistema de Controle de frotas de caminhões",
   },
 }

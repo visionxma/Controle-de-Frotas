@@ -23,7 +23,7 @@ export const usePdfReports = () => {
       // Company header
       doc.setFontSize(20)
       doc.setFont("helvetica", "bold")
-      doc.text(user?.companyName || "Controle de Frotas", 20, 25)
+      doc.text(user?.companyName || "FroX - Controle de Frotas", 20, 25)
 
       doc.setFontSize(14)
       doc.setFont("helvetica", "normal")
