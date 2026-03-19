@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Truck, CheckCircle2, Loader2, LogOut, Minus, Plus } from "lucide-react"
+import { Truck, CheckCircle2, Loader2, LogOut, Minus, Plus, ArrowLeft, Star } from "lucide-react"
 import { toast } from "sonner"
 
 const CUSTOM_PRICE_PER_TRUCK = 20
@@ -14,9 +14,11 @@ const BASIC_PRICE = 39
 const BASIC_MAX_TRUCKS = 2
 const CUSTOM_MIN_TRUCKS = 3
 
-export default function PlansPage() {
+function PlansPageContent() {
   const { user, isLoading, logout } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isChanging = searchParams.get("change") === "true"
 
   const [customTruckCount, setCustomTruckCount] = useState(CUSTOM_MIN_TRUCKS)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -24,12 +26,19 @@ export default function PlansPage() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "not_found" | "error">("idle")
   const [syncError, setSyncError] = useState("")
 
-  // Se já tem assinatura ativa, vai para o dashboard
+  // Inicializa o contador de caminhões com o valor atual do usuário
   useEffect(() => {
-    if (!isLoading && user?.subscription_status === "active") {
+    if (user?.plan_type === "custom" && user.max_trucks) {
+      setCustomTruckCount(Math.max(CUSTOM_MIN_TRUCKS, user.max_trucks))
+    }
+  }, [user?.plan_type, user?.max_trucks])
+
+  // Se já tem assinatura ativa e NÃO está trocando de plano, vai para o dashboard
+  useEffect(() => {
+    if (!isLoading && user?.subscription_status === "active" && !isChanging) {
       router.replace("/dashboard")
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router, isChanging])
 
   // Se não está autenticado, vai para login
   useEffect(() => {
@@ -38,11 +47,9 @@ export default function PlansPage() {
     }
   }, [user, isLoading, router])
 
-  // Fallback: se o usuário está logado mas sem assinatura ativa,
-  // verifica no Stripe se existe subscription paga (cobre boleto pago,
-  // webhook que falhou, ou qualquer outra falha de sincronização).
+  // Fallback: verifica assinatura no Stripe (apenas quando não está em modo troca)
   useEffect(() => {
-    if (isLoading || !user || user.subscription_status === "active") return
+    if (isLoading || !user || user.subscription_status === "active" || isChanging) return
 
     setSyncStatus("syncing")
 
@@ -51,7 +58,6 @@ export default function PlansPage() {
       .then((data) => {
         if (data.activated) {
           toast.success("Assinatura encontrada! Redirecionando...")
-          // onSnapshot do auth-context detecta a mudança e redireciona
         } else if (data.error) {
           setSyncError(data.error)
           setSyncStatus("error")
@@ -64,7 +70,7 @@ export default function PlansPage() {
         setSyncStatus("error")
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, user?.id])
+  }, [isLoading, user?.id, isChanging])
 
   const handleRetrySync = () => {
     if (!user) return
@@ -96,6 +102,29 @@ export default function PlansPage() {
     setLoadingPlan(planType)
 
     try {
+      // Se está trocando de plano (já tem assinatura ativa), usa update-subscription
+      if (isChanging && user.subscription_status === "active") {
+        const body: Record<string, unknown> = { userId: user.id, planType }
+        if (planType === "custom") body.truckCount = customTruckCount
+
+        const response = await fetch("/api/stripe/update-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erro ao atualizar plano")
+        }
+
+        toast.success("Plano atualizado com sucesso!")
+        router.push("/dashboard")
+        return
+      }
+
+      // Novo assinante: cria checkout session no Stripe
       const body: Record<string, unknown> = {
         userId: user.id,
         userEmail: user.email,
@@ -121,7 +150,8 @@ export default function PlansPage() {
       setIsRedirecting(true)
       window.location.href = data.url
     } catch (error) {
-      toast.error("Não foi possível redirecionar para o pagamento. Tente novamente.")
+      const msg = error instanceof Error ? error.message : "Tente novamente."
+      toast.error(isChanging ? `Não foi possível atualizar o plano. ${msg}` : "Não foi possível redirecionar para o pagamento. Tente novamente.")
       setLoadingPlan(null)
     }
   }
@@ -129,6 +159,11 @@ export default function PlansPage() {
   const handleLogout = () => {
     logout()
     router.push("/login")
+  }
+
+  const isCurrentPlan = (planType: "basic" | "custom") => {
+    if (!isChanging) return false
+    return user?.plan_type === planType
   }
 
   if (isLoading) {
@@ -152,9 +187,17 @@ export default function PlansPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Truck className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg">FroX</span>
+        <div className="flex items-center gap-3">
+          {isChanging && (
+            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")} className="mr-1">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Voltar
+            </Button>
+          )}
+          <div className="flex items-center gap-2">
+            <Truck className="h-6 w-6 text-primary" />
+            <span className="font-bold text-lg">FroX</span>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {user && (
@@ -162,24 +205,26 @@ export default function PlansPage() {
               {user.name} — {user.company}
             </span>
           )}
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          {!isChanging && (
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Conteúdo */}
       <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Banner de sincronização */}
-        {syncStatus === "syncing" && (
+        {/* Banner de sincronização (apenas quando não está em modo troca) */}
+        {!isChanging && syncStatus === "syncing" && (
           <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin shrink-0" />
             Verificando se você já possui um pagamento aprovado...
           </div>
         )}
 
-        {syncStatus === "error" && (
+        {!isChanging && syncStatus === "error" && (
           <div className="mb-8 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm">
             <p className="font-medium text-destructive mb-1">Erro ao verificar pagamento</p>
             <p className="text-muted-foreground mb-2">{syncError}</p>
@@ -189,7 +234,7 @@ export default function PlansPage() {
           </div>
         )}
 
-        {syncStatus === "not_found" && (
+        {!isChanging && syncStatus === "not_found" && (
           <div className="mb-8 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-4">
             <span>Nenhuma assinatura ativa encontrada. Escolha um plano abaixo para continuar.</span>
             <Button variant="ghost" size="sm" onClick={handleRetrySync} className="shrink-0">
@@ -198,16 +243,36 @@ export default function PlansPage() {
           </div>
         )}
 
+        {/* Banner de troca de plano */}
+        {isChanging && user?.plan_type && (
+          <div className="mb-8 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-center gap-3">
+            <Star className="h-4 w-4 shrink-0 text-primary" />
+            <span>
+              Você está no <strong>{user.plan_type === "basic" ? "Plano Básico" : "Plano Personalizado"}</strong>.
+              Escolha abaixo o novo plano desejado.
+            </span>
+          </div>
+        )}
+
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold mb-3">Escolha seu plano</h1>
+          <h1 className="text-3xl font-bold mb-3">
+            {isChanging ? "Trocar de plano" : "Escolha seu plano"}
+          </h1>
           <p className="text-muted-foreground text-lg">
-            Selecione o plano ideal para a sua frota. Cancele a qualquer momento.
+            {isChanging
+              ? "Selecione o novo plano para a sua frota. A mudança é imediata."
+              : "Selecione o plano ideal para a sua frota. Cancele a qualquer momento."}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Plano Básico */}
-          <Card className="relative border-2 hover:border-primary transition-colors">
+          <Card className={`relative border-2 transition-colors ${isCurrentPlan("basic") ? "border-primary bg-primary/5" : "hover:border-primary"}`}>
+            {isCurrentPlan("basic") && (
+              <div className="absolute -top-3 left-6">
+                <Badge className="px-3 py-1 bg-primary text-primary-foreground">Plano atual</Badge>
+              </div>
+            )}
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl">Plano Básico</CardTitle>
@@ -246,14 +311,19 @@ export default function PlansPage() {
 
               <Button
                 className="w-full"
+                variant={isCurrentPlan("basic") ? "outline" : "default"}
                 onClick={() => handleSelectPlan("basic")}
-                disabled={loadingPlan !== null}
+                disabled={loadingPlan !== null || isCurrentPlan("basic")}
               >
                 {loadingPlan === "basic" ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Processando...
                   </>
+                ) : isCurrentPlan("basic") ? (
+                  "Plano atual"
+                ) : isChanging ? (
+                  "Trocar para Plano Básico"
                 ) : (
                   "Assinar Plano Básico"
                 )}
@@ -262,10 +332,16 @@ export default function PlansPage() {
           </Card>
 
           {/* Plano Personalizado */}
-          <Card className="relative border-2 border-primary shadow-lg">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <Badge className="px-3 py-1">Mais popular</Badge>
-            </div>
+          <Card className={`relative border-2 transition-colors ${isCurrentPlan("custom") ? "border-primary bg-primary/5" : "border-primary shadow-lg"}`}>
+            {isCurrentPlan("custom") ? (
+              <div className="absolute -top-3 left-6">
+                <Badge className="px-3 py-1 bg-primary text-primary-foreground">Plano atual</Badge>
+              </div>
+            ) : (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="px-3 py-1">Mais popular</Badge>
+              </div>
+            )}
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl">Plano Personalizado</CardTitle>
@@ -330,14 +406,22 @@ export default function PlansPage() {
 
               <Button
                 className="w-full"
+                variant={isCurrentPlan("custom") && customTruckCount === user?.max_trucks ? "outline" : "default"}
                 onClick={() => handleSelectPlan("custom")}
-                disabled={loadingPlan !== null}
+                disabled={
+                  loadingPlan !== null ||
+                  (isCurrentPlan("custom") && customTruckCount === user?.max_trucks)
+                }
               >
                 {loadingPlan === "custom" ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Processando...
                   </>
+                ) : isCurrentPlan("custom") && customTruckCount === user?.max_trucks ? (
+                  "Plano atual"
+                ) : isChanging ? (
+                  `Trocar para ${customTruckCount} caminhões — R$${customTotal}/mês`
                 ) : (
                   `Assinar por R$${customTotal}/mês`
                 )}
@@ -347,9 +431,25 @@ export default function PlansPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Pagamento seguro processado pelo Stripe. Cancele a qualquer momento pelo suporte.
+          {isChanging
+            ? "A mudança de plano é aplicada imediatamente. O valor é ajustado proporcionalmente."
+            : "Pagamento seguro processado pelo Stripe. Cancele a qualquer momento pelo suporte."}
         </p>
       </div>
     </div>
+  )
+}
+
+export default function PlansPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <PlansPageContent />
+    </Suspense>
   )
 }

@@ -3,7 +3,9 @@
 import { useAuth } from "@/contexts/auth-context"
 import { useTrucks } from "@/hooks/use-trucks"
 import { Badge } from "@/components/ui/badge"
-import { Truck, Sparkles, ShieldCheck, Zap } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Truck, Sparkles, ShieldCheck, Zap, RefreshCw } from "lucide-react"
+import Link from "next/link"
 
 export function PlanBanner() {
   const { user } = useAuth()
@@ -70,7 +72,7 @@ export function PlanBanner() {
             </p>
           </div>
 
-          {/* Direita: destaque do limite */}
+          {/* Direita: destaque do limite + botão trocar */}
           <div className="flex items-center gap-3 sm:text-right">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
               <span className="text-2xl font-black leading-none">{maxTrucks}</span>
@@ -79,6 +81,17 @@ export function PlanBanner() {
               <p className="font-semibold leading-tight">caminhões</p>
               <p className="text-primary-foreground/70 text-xs">contratados</p>
             </div>
+            <Button
+              asChild
+              size="sm"
+              variant="secondary"
+              className="ml-2 bg-white/20 hover:bg-white/30 text-primary-foreground border-0 shrink-0"
+            >
+              <Link href="/plans?change=true">
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                Trocar plano
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -143,6 +156,12 @@ export function PlanBanner() {
             <p className="font-semibold leading-tight">Tudo incluso</p>
             <p className="text-muted-foreground text-xs">viagens, fotos, financeiro</p>
           </div>
+          <Button asChild size="sm" variant="outline" className="ml-2 shrink-0">
+            <Link href="/plans?change=true">
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Trocar plano
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

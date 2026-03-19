@@ -15,6 +15,7 @@ import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { useTransactions } from "@/hooks/use-transactions"
 import { Button } from "@/components/ui/button"
 import { PlanBanner } from "@/components/plan-banner"
+import { OnboardingTour } from "@/components/onboarding-tour"
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30d")
@@ -44,6 +45,7 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
+      <OnboardingTour />
       <DashboardLayout>
         <div className="mobile-spacing">
           <PlanBanner />

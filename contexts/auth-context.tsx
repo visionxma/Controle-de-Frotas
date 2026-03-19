@@ -38,6 +38,7 @@ interface User {
   subscription_status?: "active" | "inactive" | "past_due" | "canceled" | null
   stripe_customer_id?: string | null
   stripe_subscription_id?: string | null
+  onboarding_completed?: boolean
 }
 
 interface AuthContextType {
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 subscription_status: userData.subscription_status ?? null,
                 stripe_customer_id: userData.stripe_customer_id ?? null,
                 stripe_subscription_id: userData.stripe_subscription_id ?? null,
+                onboarding_completed: userData.onboarding_completed ?? false,
               })
             } else {
               setUser({
