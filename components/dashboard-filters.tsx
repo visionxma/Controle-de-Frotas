@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Filter } from "lucide-react"
+import { Calendar, Filter, Users } from "lucide-react"
 import { useState } from "react"
 
 interface DashboardFiltersProps {
@@ -56,65 +56,67 @@ export function DashboardFilters({
   }
 
   return (
-    <Card>
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium hidden sm:inline">Filtros:</span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedPeriod} onValueChange={onPeriodChange}>
-                <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((period) => (
-                  <SelectItem key={period.value} value={period.value}>
-                    {period.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-            <Select value={selectedTruck || "all"} onValueChange={handleTruckChange}>
-              <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Todos os caminhões" />
+    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white/50 dark:bg-black/20 p-4 rounded-3xl border border-border/40 backdrop-blur-md">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-2xl border border-border/60 shadow-sm">
+          <Calendar className="h-4 w-4 text-primary" />
+          <Select value={selectedPeriod} onValueChange={onPeriodChange}>
+            <SelectTrigger className="border-0 bg-transparent p-0 h-auto focus:ring-0 w-[140px] text-xs font-semibold">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os caminhões</SelectItem>
+              {periods.map((period) => (
+                <SelectItem key={period.value} value={period.value} className="text-xs">
+                  {period.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-2xl border border-border/60 shadow-sm">
+          <Filter className="h-4 w-4 text-muted-foreground/60" />
+          <Select value={selectedTruck || "all"} onValueChange={handleTruckChange}>
+            <SelectTrigger className="border-0 bg-transparent p-0 h-auto focus:ring-0 w-[150px] text-xs font-semibold">
+              <SelectValue placeholder="Caminhões" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todos os caminhões</SelectItem>
               {trucks.map((truck) => (
-                <SelectItem key={truck.id} value={truck.id}>
+                <SelectItem key={truck.id} value={truck.id} className="text-xs">
                   {truck.plate}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+        </div>
 
-            <Select value={selectedDriver || "all"} onValueChange={handleDriverChange}>
-              <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Todos os motoristas" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-2xl border border-border/60 shadow-sm">
+          <Users className="h-4 w-4 text-muted-foreground/60" />
+          <Select value={selectedDriver || "all"} onValueChange={handleDriverChange}>
+            <SelectTrigger className="border-0 bg-transparent p-0 h-auto focus:ring-0 w-[150px] text-xs font-semibold">
+              <SelectValue placeholder="Motoristas" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os motoristas</SelectItem>
+              <SelectItem value="all" className="text-xs">Todos os motoristas</SelectItem>
               {drivers.map((driver) => (
-                <SelectItem key={driver.id} value={driver.id}>
+                <SelectItem key={driver.id} value={driver.id} className="text-xs">
                   {driver.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-
-            <Button variant="outline" size="sm" onClick={clearFilters} className="w-full sm:w-auto">
-            Limpar filtros
-          </Button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={clearFilters} 
+        className="text-muted-foreground hover:text-primary transition-colors hover:bg-primary/5 rounded-2xl text-xs font-bold"
+      >
+        Limpar Filtros
+      </Button>
+    </div>
   )
 }

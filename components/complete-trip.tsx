@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Trip } from "@/hooks/use-trips"
 import { useTrucks } from "@/hooks/use-trucks"
+import { CityAutocomplete } from "./city-autocomplete"
+import { cn } from "@/lib/utils"
+import { MapPin, Info, ArrowRight, Gauge, Fuel, CheckCircle2 } from "lucide-react"
 
 interface CompleteTripProps {
   trip: Trip
@@ -98,111 +101,141 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
       : 0
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Finalizar Viagem</CardTitle>
+    <Card className="rounded-sm border-white/10 overflow-hidden shadow-2xl">
+      <CardHeader className="bg-muted/30 pb-6 border-b border-white/5">
+        <CardTitle className="text-xl font-black uppercase italic tracking-tight flex items-center gap-3">
+          <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+          Finalizar Viagem
+        </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="mb-6 p-4 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-2">Informações da Viagem</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Caminhão:</span> {trip.truckPlate}
+      <CardContent className="pt-8">
+        <div className="mb-8 p-6 bg-zinc-900/50 rounded-sm border border-white/5 backdrop-blur-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Info className="h-24 w-24 text-white" />
+          </div>
+          
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4 flex items-center gap-2">
+            <Info className="h-3 w-3" /> Resumo da Operação em Aberto
+          </h3>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm relative z-10">
+            <div className="space-y-1">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Veículo</span>
+              <span className="font-black text-xs uppercase italic">{trip.truckPlate}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Motorista:</span> {trip.driverName}
+            <div className="space-y-1">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Condutor</span>
+              <span className="font-black text-xs uppercase italic">{trip.driverName}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Saída:</span> {trip.startLocation}
+            <div className="space-y-1">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Ponto de Partida</span>
+              <span className="font-black text-xs uppercase italic">{trip.startLocation}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">KM Inicial:</span> {trip.startKm.toLocaleString()}
+            <div className="space-y-1">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Hodômetro Inicial</span>
+              <span className="font-black text-xs uppercase italic">{trip.startKm.toLocaleString()} KM</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Data/Hora Saída:</span>{" "}
-              {new Date(`${trip.startDate}T${trip.startTime}`).toLocaleString("pt-BR")}
+            <div className="space-y-1 col-span-2">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Início da Jornada</span>
+              <span className="font-black text-xs uppercase italic">
+                {new Date(`${trip.startDate}T${trip.startTime}`).toLocaleString("pt-BR")}
+              </span>
             </div>
-            {currentTruck?.currentFuelLevel !== undefined && (
-              <div>
-                <span className="text-muted-foreground">Combustível Atual:</span>{" "}
-                {currentTruck.currentFuelLevel.toFixed(1)} L
-              </div>
-            )}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium mb-4">Dados de Chegada</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-6">
+             <div className="flex items-center gap-2 mb-2">
+                <div className="h-4 w-1 bg-emerald-500 rounded-full" />
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80">Dados de Encerramento</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="endLocation">Local de Chegada</Label>
-                <Input
-                  id="endLocation"
-                  value={formData.endLocation}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, endLocation: e.target.value }))}
-                  placeholder="Ex: Rio de Janeiro - RJ"
-                  required
+                <Label htmlFor="endLocation" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1 flex items-center gap-2">
+                   <MapPin className="h-3 w-3 opacity-40" /> Local de Chegada (Destino) *
+                </Label>
+                <CityAutocomplete
+                   value={formData.endLocation}
+                   onChange={(val) => setFormData(prev => ({ ...prev, endLocation: val }))}
+                   placeholder="Cidade de destino..."
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="endKm">Quilometragem Final</Label>
-                <Input
-                  id="endKm"
-                  type="number"
-                  step="1"
-                  value={formData.endKm}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setFormData((prev) => ({ ...prev, endKm: value }))
-                  }}
-                  placeholder="Ex: 150500"
-                  min={trip.startKm + 1}
-                  required
-                />
+                <Label htmlFor="endKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1 flex items-center gap-2">
+                  <Gauge className="h-3 w-3 opacity-40" /> Quilometragem Final *
+                </Label>
+                <div className="relative">
+                    <Input
+                      id="endKm"
+                      type="number"
+                      step="1"
+                      value={formData.endKm}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, endKm: e.target.value }))}
+                      placeholder="Ex: 154850"
+                      min={trip.startKm + 1}
+                      className="h-11 rounded-sm border-border/40 pl-10 font-black italic tracking-tighter text-lg"
+                      required
+                    />
+                    <span className="absolute left-3 top-3 text-[10px] font-black text-muted-foreground/30 italic">KM</span>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="endDate">Data de Chegada</Label>
+                <Label htmlFor="endDate" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                   Data de Chegada *
+                </Label>
                 <Input
                   id="endDate"
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
                   min={trip.startDate}
+                  className="h-11 rounded-sm border-border/40 shadow-sm"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="endTime">Horário de Chegada</Label>
+                <Label htmlFor="endTime" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  Horário de Chegada *
+                </Label>
                 <Input
                   id="endTime"
                   type="time"
                   value={formData.endTime}
                   onChange={(e) => setFormData((prev) => ({ ...prev, endTime: e.target.value }))}
+                  className="h-11 rounded-sm border-border/40 shadow-sm"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="refuelingLiters">Abastecimento Total (Litros)</Label>
-                <Input
-                  id="refuelingLiters"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={formData.refuelingLiters}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, refuelingLiters: e.target.value }))}
-                  placeholder="Ex: 250.5"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Quantidade total de combustível abastecido na viagem</p>
+                <Label htmlFor="refuelingLiters" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1 flex items-center gap-2">
+                  <Fuel className="h-3.5 w-3.5 opacity-40" /> Abastecimento em Rota (Litros) *
+                </Label>
+                <div className="relative">
+                    <Input
+                      id="refuelingLiters"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={formData.refuelingLiters}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, refuelingLiters: e.target.value }))}
+                      placeholder="0.0"
+                      className="h-11 rounded-sm border-border/40 pl-10 font-black italic tracking-tighter text-lg"
+                      required
+                    />
+                    <span className="absolute left-3 top-3 text-[10px] font-black text-muted-foreground/30 italic">L</span>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="fuelConsumption">Consumo Médio do Caminhão (km/L)</Label>
+                <Label htmlFor="fuelConsumption" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                   Média Consumo do Veículo (KM/L) *
+                </Label>
                 <Input
                   id="fuelConsumption"
                   type="number"
@@ -211,43 +244,46 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
                   value={formData.fuelConsumption}
                   onChange={(e) => setFormData((prev) => ({ ...prev, fuelConsumption: e.target.value }))}
                   placeholder="Ex: 3.5"
+                  className="h-11 rounded-sm border-border/40 font-black italic tracking-tighter text-lg"
                   required
                 />
-                <p className="text-xs text-muted-foreground">Informe quantos km o caminhão faz por litro</p>
               </div>
 
               {kmTraveled > 0 && (
-                <div className="space-y-2">
-                  <Label>Quilômetros Percorridos</Label>
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <span className="text-lg font-semibold text-primary">{kmTraveled.toLocaleString()} km</span>
+                <div className="md:col-span-2 mt-4 space-y-4">
+                  <div className="flex items-center gap-4">
+                      <div className="flex-1 h-px bg-white/5" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 italic">Análise de Performance</span>
+                      <div className="flex-1 h-px bg-white/5" />
                   </div>
-                </div>
-              )}
 
-              {kmTraveled > 0 && formData.refuelingLiters && formData.fuelConsumption && (
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Resumo do Consumo</Label>
-                  <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">Consumo Médio:</span>
-                        <div className="text-2xl font-bold text-primary">{formData.fuelConsumption} km/L</div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">Combustível Consumido:</span>
-                        <div className="text-lg font-semibold text-orange-700">{fuelConsumed.toFixed(2)} L</div>
-                        <p className="text-xs text-muted-foreground">
-                          ({kmTraveled} km ÷ {formData.fuelConsumption} km/L)
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">Combustível Restante:</span>
-                        <div className="text-lg font-semibold text-blue-700">{remainingFuel.toFixed(2)} L</div>
-                        <p className="text-xs text-muted-foreground">
-                          ({formData.refuelingLiters} L - {fuelConsumed.toFixed(2)} L)
-                        </p>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-zinc-900/40 p-4 rounded-sm border border-white/5 flex flex-col justify-between">
+                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Distância Percorrida</span>
+                         <span className="text-xl font-black text-primary italic">
+                            {kmTraveled.toLocaleString()} <span className="text-[10px] opacity-40">KM</span>
+                         </span>
+                    </div>
+
+                    <div className="bg-zinc-900/40 p-4 rounded-sm border border-white/5 flex flex-col justify-between">
+                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Combustível Consumido</span>
+                         <span className="text-xl font-black text-orange-500 italic">
+                            {fuelConsumed.toFixed(1)} <span className="text-[10px] opacity-40">L</span>
+                         </span>
+                    </div>
+
+                    <div className="bg-zinc-900/40 p-4 rounded-sm border border-white/5 flex flex-col justify-between">
+                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Total Abastecido</span>
+                         <span className="text-xl font-black text-blue-500 italic">
+                            {formData.refuelingLiters || "0"} <span className="text-[10px] opacity-40">L</span>
+                         </span>
+                    </div>
+
+                    <div className="bg-emerald-500/10 p-4 rounded-sm border border-emerald-500/20 flex flex-col justify-between">
+                         <span className="text-[8px] font-bold text-emerald-500/60 uppercase tracking-widest block mb-1">Saldo no Tanque</span>
+                         <span className={cn("text-xl font-black italic", remainingFuel > 0 ? "text-emerald-500" : "text-red-500")}>
+                            {remainingFuel.toFixed(1)} <span className="text-[10px] opacity-40">L</span>
+                         </span>
                     </div>
                   </div>
                 </div>
@@ -255,11 +291,20 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
             </div>
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Finalizando..." : "Finalizar Viagem"}
+          <div className="flex gap-4 pt-4">
+            <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic rounded-sm transition-all shadow-xl shadow-emerald-500/20 h-12"
+            >
+              Confirmar Encerramento e Calcular Saldo
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onCancel}
+                className="rounded-sm border-white/10 hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest px-8"
+            >
               Cancelar
             </Button>
           </div>

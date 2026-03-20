@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Truck, User, Trash2, CheckCircle, DollarSign, Weight, Fuel } from "lucide-react"
+import { RegisteredBy } from "./registered-by"
 import type { Trip } from "@/hooks/use-trips"
 
 interface TripListProps {
@@ -35,11 +36,17 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, isLoading
 
   if (trips.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-8 sm:p-12 text-center">
-          <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold mb-2">Nenhuma viagem encontrada</h3>
-          <p className="text-muted-foreground text-sm">Comece adicionando uma nova viagem à sua frota.</p>
+      <Card className="rounded-[2.5rem] border-dashed border-2 border-border/40 bg-muted/5">
+        <CardContent className="p-12 sm:p-20 text-center space-y-4">
+          <div className="bg-muted/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-2">
+            <MapPin className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold tracking-tight uppercase">Nenhuma viagem encontrada</h3>
+            <p className="text-muted-foreground text-sm max-w-xs mx-auto font-medium">
+              Sua frota ainda não registrou nenhuma atividade. Comece adicionando uma nova viagem.
+            </p>
+          </div>
         </CardContent>
       </Card>
     )
@@ -52,175 +59,118 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, isLoading
   const getStatusBadge = (status: Trip["status"]) => {
     switch (status) {
       case "in_progress":
-        return <Badge variant="secondary">Em Andamento</Badge>
+        return <Badge variant="secondary" className="rounded-sm px-2 py-[2px] font-black uppercase text-[9px] bg-amber-500/10 text-amber-600 border-none shadow-none tracking-wider">Em Andamento</Badge>
       case "completed":
-        return <Badge variant="default">Finalizada</Badge>
+        return <Badge variant="default" className="rounded-sm px-2 py-[2px] font-black uppercase text-[9px] bg-green-500/10 text-green-600 border-none shadow-none tracking-wider">Finalizada</Badge>
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline" className="rounded-full px-3 py-1 font-bold uppercase text-[10px]">{status}</Badge>
     }
   }
 
   return (
     <div className="space-y-3 sm:space-y-4">
       {trips.map((trip) => (
-        <Card key={trip.id}>
-          <CardContent className="responsive-card-padding">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-3 sm:gap-0">
-              <div className="flex items-center gap-2">
+        <Card key={trip.id} className="rounded-3xl border-border/40 shadow-sm hover:shadow-md transition-all overflow-hidden bg-card/50 backdrop-blur-sm">
+          <CardContent className="px-6 py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 {getStatusBadge(trip.status)}
-                <span className="text-xs sm:text-sm text-muted-foreground">{formatDateTime(trip.startDate, trip.startTime)}</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest leading-none mb-1">Início da Viagem</span>
+                  <span className="text-xs font-bold text-foreground leading-none">{formatDateTime(trip.startDate, trip.startTime)}</span>
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex items-center gap-2">
                 {onViewDetails && (
-                  <Button size="sm" variant="outline" onClick={() => onViewDetails(trip)} className="h-8 text-xs">
-                    Ver Detalhes
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => onViewDetails(trip)} 
+                    className="h-9 px-4 rounded-2xl border-border/40 font-bold text-xs hover:bg-primary/5 hover:text-primary transition-all"
+                  >
+                    Detalhes
                   </Button>
                 )}
                 {trip.status === "in_progress" && (
-                  <Button size="sm" onClick={() => onComplete(trip)} className="h-8 text-xs">
-                    <CheckCircle className="h-4 w-4 mr-1" />
+                  <Button 
+                    size="sm" 
+                    onClick={() => onComplete(trip)} 
+                    className="h-9 px-4 rounded-2xl bg-primary hover:bg-primary/90 font-bold text-xs shadow-md shadow-primary/20"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1.5" />
                     Finalizar
                   </Button>
                 )}
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => onDelete(trip.id)}
-                  className="h-8 text-xs text-destructive hover:text-destructive"
+                  className="h-9 w-9 rounded-2xl p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="flex items-center gap-3 bg-muted/20 p-3 rounded-2xl">
+                <Truck className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm font-medium leading-tight">{trip.truckPlate}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">Caminhão</p>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">Caminhão</p>
+                  <p className="text-sm font-bold leading-none">{trip.truckPlate}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-3 bg-muted/20 p-3 rounded-2xl">
+                <User className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm font-medium leading-tight">{trip.driverName}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">Motorista</p>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">Motorista</p>
+                  <p className="text-sm font-bold leading-none">{trip.driverName}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-3 bg-muted/20 p-3 rounded-2xl">
+                <MapPin className="h-5 w-5 text-amber-600" />
                 <div>
-                  <p className="text-sm font-medium leading-tight">{trip.startLocation}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">Origem</p>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">Origem</p>
+                  <p className="text-sm font-bold leading-none truncate max-w-[150px]">{trip.startLocation}</p>
                 </div>
               </div>
 
-              {trip.endLocation && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium leading-tight">{trip.endLocation}</p>
-                    <p className="text-xs text-muted-foreground leading-tight">Destino</p>
-                  </div>
+              <div className="flex items-center gap-3 bg-primary/5 p-3 rounded-2xl border border-primary/10">
+                <MapPin className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">Destino</p>
+                  <p className="text-sm font-bold leading-none truncate max-w-[150px]">{trip.endLocation || "A definir"}</p>
                 </div>
-              )}
+              </div>
             </div>
 
-            {(trip.weightTons || trip.freightValue || trip.netProfit !== undefined || trip.fuelLiters || trip.fuelConsumption) && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {trip.weightTons && (
-                    <div className="flex items-center gap-2">
-                      <Weight className="h-4 w-4 text-blue-500" />
-                      <div>
-                        <p className="text-sm font-medium leading-tight">{trip.weightTons} t</p>
-                        <p className="text-xs text-muted-foreground leading-tight">Peso</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {trip.freightValue && (
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-500" />
-                      <div>
-                        <p className="text-sm font-medium leading-tight">R$ {trip.freightValue.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground leading-tight">Valor do Frete</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {trip.totalExpenses !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-red-500" />
-                      <div>
-                        <p className="text-sm font-medium leading-tight">R$ {trip.totalExpenses.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground leading-tight">Despesas</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {trip.netProfit !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <DollarSign className={`h-4 w-4 ${trip.netProfit >= 0 ? "text-green-600" : "text-red-600"}`} />
-                      <div>
-                        <p className={`text-sm font-medium leading-tight ${trip.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          R$ {trip.netProfit.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground leading-tight">Lucro Líquido</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {trip.fuelLiters && (
-                    <div className="flex items-center gap-2">
-                      <Fuel className="h-4 w-4 text-orange-500" />
-                      <div>
-                        <p className="text-sm font-medium leading-tight">{trip.fuelLiters.toLocaleString()} L</p>
-                        <p className="text-xs text-muted-foreground leading-tight">Combustível</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {trip.fuelConsumption && (
-                    <div className="flex items-center gap-2">
-                      <Fuel className="h-4 w-4 text-red-500" />
-                      <div>
-                        <p className="text-sm font-medium leading-tight">{trip.fuelConsumption.toFixed(3)} L/km</p>
-                        <p className="text-xs text-muted-foreground leading-tight">Consumo Médio</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-border/10">
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">KM Inicial</span>
+                <p className="text-sm font-bold">{trip.startKm.toLocaleString()} KM</p>
               </div>
-            )}
-
-            <div className="mt-4 pt-4 border-t">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">KM Inicial:</span>
-                  <p className="font-medium leading-tight">{trip.startKm.toLocaleString()}</p>
-                </div>
-                {trip.endKm && (
-                  <>
-                    <div>
-                      <span className="text-muted-foreground">KM Final:</span>
-                      <p className="font-medium leading-tight">{trip.endKm.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">KM Percorridos:</span>
-                      <p className="font-medium text-primary leading-tight">{(trip.endKm - trip.startKm).toLocaleString()}</p>
-                    </div>
-                  </>
-                )}
-                {trip.endDate && trip.endTime && (
-                  <div>
-                    <span className="text-muted-foreground">Finalizada em:</span>
-                    <p className="font-medium leading-tight">{formatDateTime(trip.endDate, trip.endTime)}</p>
+              {trip.endKm && (
+                <>
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">KM Final</span>
+                    <p className="text-sm font-bold">{trip.endKm.toLocaleString()} KM</p>
                   </div>
-                )}
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">KM Rodados</span>
+                    <p className="text-sm font-black text-primary">{(trip.endKm - trip.startKm).toLocaleString()} KM</p>
+                  </div>
+                </>
+              )}
+              {trip.endDate && (
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Finalizada em</span>
+                  <p className="text-xs font-bold">{formatDateTime(trip.endDate, trip.endTime || "00:00")}</p>
+                </div>
+              )}
+              <div className="flex items-center justify-start">
+                <RegisteredBy userName={trip.createdBy} className="opacity-80" />
               </div>
             </div>
           </CardContent>

@@ -184,38 +184,45 @@ function PlansPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background/50">
       {/* Header */}
-      <div className="border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {isChanging && (
-            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")} className="mr-1">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Voltar
-            </Button>
-          )}
-          <div className="flex items-center gap-2">
-            <Truck className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">FroX</span>
+      <div className="border-b bg-background/80 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <img src="/frox.svg" alt="FroX" className="h-7 w-auto" />
+            </div>
+            {isChanging && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => router.push("/dashboard")} 
+                className="rounded-2xl hover:bg-primary/5 hover:text-primary font-bold transition-all px-4"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar ao Sistema
+              </Button>
+            )}
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {user && (
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {user.name} — {user.company}
-            </span>
-          )}
-          {!isChanging && (
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
-          )}
+          <div className="flex items-center gap-6">
+            {user && (
+              <div className="flex flex-col items-end hidden sm:flex">
+                <span className="text-xs font-bold text-foreground leading-tight uppercase tracking-wider">{user.name}</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">{user.company}</span>
+              </div>
+            )}
+            {!isChanging && (
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="rounded-2xl text-muted-foreground hover:text-red-500 font-bold">
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Conteúdo */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      <div className="max-w-5xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
         {/* Banner de sincronização (apenas quando não está em modo troca) */}
         {!isChanging && syncStatus === "syncing" && (
           <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">

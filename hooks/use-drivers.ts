@@ -16,6 +16,16 @@ import {
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
+// Modulo-level cache to share singleton across components (prevents multi-listeners memory leak and firestore read quota burst)
+let cachedDrivers: Driver[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
+
 export interface Driver {
   id: string
   name: string
@@ -38,11 +48,25 @@ export interface Driver {
 
 export function useDrivers() {
   const { user } = useAuth()
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [drivers, setDrivers] = useState<Driver[]>(cachedDrivers || [])
+  const [isLoading, setIsLoading] = useState(cachedDrivers === null)
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
+      setDrivers([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setDrivers(cachedDrivers || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
       let driversQuery
 
       if (user.role === "admin") {
@@ -62,27 +86,35 @@ export function useDrivers() {
         driversQuery = query(collection(db, "drivers"), where("userId", "==", user.id))
       }
 
-      const unsubscribe = onSnapshot(
+      globalUnsubscribe = onSnapshot(
         driversQuery,
-        (snapshot) => {
-          const driversData = snapshot.docs.map((doc) => ({
+        (snapshot: any) => {
+          const driversData = snapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data(),
           })) as Driver[]
 
-          setDrivers(driversData)
-          setIsLoading(false)
+          cachedDrivers = driversData
+          notify()
         },
-        (error) => {
-          setDrivers([])
-          setIsLoading(false)
+        (error: any) => {
+          console.error("Erro na snapshot de drivers:", error)
+          cachedDrivers = []
+          notify()
         },
       )
-
-      return () => unsubscribe()
-    } else {
-      setDrivers([])
+    } else if (cachedDrivers !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedDrivers = null
+      }
     }
   }, [user])
 

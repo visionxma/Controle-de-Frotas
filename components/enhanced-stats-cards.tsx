@@ -6,6 +6,7 @@ import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { useTransactions } from "@/hooks/use-transactions"
 import { useTrips } from "@/hooks/use-trips"
+import { cn } from "@/lib/utils"
 
 interface EnhancedStatsCardsProps {
   period: string
@@ -27,7 +28,7 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
     return true
   })
 
-  const { revenue, expenses, profit } = getFilteredStats(period, truckFilter, driverFilter)
+  const { revenue, expenses, profit } = getFilteredStats(period, truckFilter, driverFilter, null)
 
   console.log("[v0] EnhancedStatsCards - revenue:", revenue)
   console.log("[v0] EnhancedStatsCards - expenses:", expenses)
@@ -37,90 +38,38 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
   const completedTrips = filteredTrips.filter((trip) => trip.status === "completed").length
   const totalKm = filteredTrips
     .filter((trip) => trip.status === "completed")
-    .reduce((sum, trip) => sum + (trip.endKm - trip.startKm), 0)
+    .reduce((sum, trip) => sum + ((trip.endKm || 0) - (trip.startKm || 0)), 0)
 
   const revenueChange = Math.random() * 20 - 10
   const profitChange = Math.random() * 30 - 15
 
   return (
-    <div className="responsive-stats-grid gap-3 sm:gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">Caminhões</CardTitle>
-          <Truck className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold">{filteredTrucks.length}</div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {filteredTrucks.filter((t) => t.status === "active").length} ativos
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">Motoristas</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold">{filteredDrivers.length}</div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {filteredDrivers.filter((d) => d.status === "active").length} disponíveis
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">Viagens</CardTitle>
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold">{activeTrips}</div>
-          <p className="text-xs sm:text-sm text-muted-foreground">{completedTrips} concluídas</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">KM Rodados</CardTitle>
-          <Fuel className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold">{totalKm.toLocaleString()}</div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {totalKm > 0 ? (totalKm / Math.max(completedTrips, 1)).toFixed(0) : 0} km/viagem
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">Receita</CardTitle>
-          <TrendingUp className="h-4 w-4 text-green-600" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold text-green-600">R$ {revenue.toLocaleString("pt-BR")}</div>
-          <p className={`text-xs sm:text-sm ${revenueChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {revenueChange >= 0 ? "+" : ""}
-            {revenueChange.toFixed(1)}% vs anterior
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-          <CardTitle className="text-xs sm:text-sm font-medium">Lucro</CardTitle>
-          <TrendingUp className="h-4 w-4 text-primary" />
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          <div className="text-xl sm:text-2xl font-bold text-primary">R$ {profit.toLocaleString("pt-BR")}</div>
-          <p className={`text-xs sm:text-sm ${profitChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {profitChange >= 0 ? "+" : ""}
-            {profitChange.toFixed(1)}% margem
-          </p>
-        </CardContent>
-      </Card>
+    <div className="responsive-stats-grid gap-4 lg:gap-6">
+      {[
+        { title: "Caminhões", value: filteredTrucks.length, sub: `${filteredTrucks.filter((t) => t.status === "active").length} ativos`, icon: Truck, color: "text-blue-500", bg: "bg-blue-500/10" },
+        { title: "Motoristas", value: filteredDrivers.length, sub: `${filteredDrivers.filter((d) => d.status === "active").length} disponíveis`, icon: Users, color: "text-purple-500", bg: "bg-purple-500/10" },
+        { title: "Viagens", value: activeTrips, sub: `${completedTrips} concluídas`, icon: MapPin, color: "text-orange-500", bg: "bg-orange-500/10" },
+        { title: "KM Rodados", value: totalKm.toLocaleString(), sub: `${totalKm > 0 ? (totalKm / Math.max(completedTrips, 1)).toFixed(0) : 0} km/viagem`, icon: Fuel, color: "text-amber-500", bg: "bg-amber-500/10" },
+        { title: "Receita", value: `R$ ${revenue.toLocaleString("pt-BR")}`, sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% vs anterior`, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10", isPositive: revenueChange >= 0 },
+        { title: "Lucro", value: `R$ ${profit.toLocaleString("pt-BR")}`, sub: `${profitChange.toFixed(1)}% margem`, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10", isPositive: profitChange >= 0 },
+      ].map((card, i) => (
+        <div key={i} className="group relative flex flex-col p-5 bg-card border border-border/40 rounded-[2rem] hover:border-primary/30 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-4">
+            <div className={cn("p-2 rounded-xl transition-all duration-300 group-hover:scale-110", card.bg, card.color)}>
+              <card.icon className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{card.title}</span>
+          </div>
+          <div className="space-y-1">
+            <div className={cn("text-2xl font-bold tracking-tight", card.title === "Receita" ? "text-green-600" : card.title === "Lucro" ? "text-primary" : "text-foreground")}>
+              {card.value}
+            </div>
+            <p className={cn("text-xs font-medium", card.isPositive === undefined ? "text-muted-foreground/60" : card.isPositive ? "text-green-600/80" : "text-red-500/80")}>
+              {card.sub}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

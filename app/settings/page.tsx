@@ -17,6 +17,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
 import { useBackup } from "@/hooks/use-backup"
 import {
@@ -90,9 +97,11 @@ export default function SettingsPage() {
   const [newCollaboratorName, setNewCollaboratorName] = useState("")
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("")
   const [newCollaboratorPassword, setNewCollaboratorPassword] = useState("")
+  const [newCollaboratorRole, setNewCollaboratorRole] = useState<"admin" | "collaborator">("collaborator")
   const [editCollaboratorName, setEditCollaboratorName] = useState("")
   const [editCollaboratorEmail, setEditCollaboratorEmail] = useState("")
   const [editCollaboratorPassword, setEditCollaboratorPassword] = useState("")
+  const [editCollaboratorRole, setEditCollaboratorRole] = useState<"admin" | "collaborator">("collaborator")
   const [showNewCollaboratorPassword, setShowNewCollaboratorPassword] = useState(false)
   const [showEditCollaboratorPassword, setShowEditCollaboratorPassword] = useState(false)
   const [isSubmittingCollaborator, setIsSubmittingCollaborator] = useState(false)
@@ -183,12 +192,14 @@ export default function SettingsPage() {
         newCollaboratorName.trim(),
         newCollaboratorEmail.trim(),
         newCollaboratorPassword,
+        newCollaboratorRole,
       )
       if (success) {
         toast.success("Colaborador criado com sucesso!")
         setNewCollaboratorName("")
         setNewCollaboratorEmail("")
         setNewCollaboratorPassword("")
+        setNewCollaboratorRole("collaborator")
         setIsCreateCollaboratorDialogOpen(false)
         await loadCollaborators()
       } else {
@@ -216,6 +227,7 @@ export default function SettingsPage() {
         editCollaboratorName.trim(),
         editCollaboratorEmail.trim(),
         editCollaboratorPassword.trim() || undefined,
+        editCollaboratorRole,
       )
       if (success) {
         toast.success("Colaborador atualizado com sucesso!")
@@ -259,6 +271,7 @@ export default function SettingsPage() {
     setEditingCollaborator(collaborator)
     setEditCollaboratorName(collaborator.name)
     setEditCollaboratorEmail(collaborator.email)
+    setEditCollaboratorRole(collaborator.role)
     setEditCollaboratorPassword("")
     setIsEditCollaboratorDialogOpen(true)
   }
@@ -266,17 +279,17 @@ export default function SettingsPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="mobile-spacing">
-          <div>
-            <h1 className="font-bold tracking-tight">Configurações</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              Gerencie suas configurações de conta e preferências do sistema
+        <div className="max-w-[1200px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl uppercase">Configurações</h1>
+            <p className="text-muted-foreground text-sm sm:text-base font-medium max-w-2xl">
+              Personalize sua experiência, gerencie acessos e controle as diretrizes do seu sistema.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:gap-6">
+          <div className="grid gap-8">
             {/* Informações da Conta */}
-            <Card>
+            <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-card/50 backdrop-blur-sm">
               <CardHeader className="responsive-card-padding">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -284,9 +297,9 @@ export default function SettingsPage() {
                     <span className="text-base sm:text-lg">Informações da Conta</span>
                   </div>
                   {!isEditing ? (
-                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="h-8 text-xs">
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary h-9 px-4 font-bold shadow-sm">
                       <Edit className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Editar</span>
+                      <span className="hidden sm:inline">Editar Perfil</span>
                     </Button>
                   ) : (
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -295,14 +308,14 @@ export default function SettingsPage() {
                         size="sm"
                         onClick={handleCancel}
                         disabled={isUpdating}
-                        className="h-8 text-xs bg-transparent"
+                        className="rounded-2xl border-border/40 h-9 px-4 font-bold"
                       >
                         <X className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline">Cancelar</span>
                       </Button>
-                      <Button size="sm" onClick={handleSave} disabled={isUpdating} className="h-8 text-xs">
+                      <Button size="sm" onClick={handleSave} disabled={isUpdating} className="rounded-2xl bg-primary hover:bg-primary/90 h-9 px-4 font-bold shadow-md shadow-primary/10">
                         <Save className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">{isUpdating ? "Salvando..." : "Salvar"}</span>
+                        <span className="hidden sm:inline">{isUpdating ? "Salvando..." : "Salvar Alterações"}</span>
                       </Button>
                     </div>
                   )}
@@ -434,7 +447,7 @@ export default function SettingsPage() {
             </Card>
 
             {user?.role === "admin" && (
-              <Card>
+              <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-white/40 dark:bg-black/20 backdrop-blur-sm">
                 <CardHeader className="responsive-card-padding">
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -505,6 +518,18 @@ export default function SettingsPage() {
                               </button>
                             </div>
                           </div>
+                          <div>
+                            <Label>Função</Label>
+                            <Select value={newCollaboratorRole} onValueChange={(value: any) => setNewCollaboratorRole(value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="collaborator">Colaborador</SelectItem>
+                                <SelectItem value="admin">Administrador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <div className="flex justify-end gap-2">
                             <Button
                               type="button"
@@ -550,10 +575,10 @@ export default function SettingsPage() {
                           <div>
                             <p className="font-medium text-sm sm:text-base">{user.name}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="default" className="text-xs">
+                              <Badge variant="destructive" className="text-[10px] font-black uppercase rounded-full px-2">
                                 Administrador
                               </Badge>
-                              <span className="text-xs text-muted-foreground">Você</span>
+                              <span className="text-xs text-muted-foreground font-medium italic">Você</span>
                             </div>
                           </div>
                         </div>
@@ -592,10 +617,13 @@ export default function SettingsPage() {
                               <div>
                                 <p className="font-medium text-sm sm:text-base">{collaborator.name}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="secondary" className="text-xs">
-                                    Colaborador
+                                  <Badge 
+                                    variant={collaborator.role === "admin" ? "destructive" : "secondary"} 
+                                    className="text-[10px] font-black uppercase rounded-full px-2"
+                                  >
+                                    {collaborator.role === "admin" ? "Administrador" : "Colaborador"}
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground">{collaborator.email}</span>
+                                  <span className="text-xs text-muted-foreground font-medium opacity-60">{collaborator.email}</span>
                                 </div>
                               </div>
                             </div>
@@ -637,7 +665,7 @@ export default function SettingsPage() {
             )}
 
             {/* Suporte */}
-            <Card>
+            <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-white/40 dark:bg-black/20 backdrop-blur-sm">
               <CardHeader className="responsive-card-padding">
                 <CardTitle className="flex items-center gap-2">
                   <HelpCircle className="h-5 w-5" />
@@ -701,7 +729,7 @@ export default function SettingsPage() {
             </Card>
 
             {/* Termos de Uso e Políticas */}
-            <Card>
+            <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-white/40 dark:bg-black/20 backdrop-blur-sm">
               <CardHeader className="responsive-card-padding">
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -768,7 +796,7 @@ export default function SettingsPage() {
             </Card>
 
             {/* Informações do Sistema */}
-            <Card>
+            <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-white/40 dark:bg-black/20 backdrop-blur-sm">
               <CardHeader className="responsive-card-padding">
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />

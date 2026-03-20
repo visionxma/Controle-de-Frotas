@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown } from "lucide-react"
 import { useTransactions } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
+import { cn } from "@/lib/utils"
 
 export function RecentTransactions() {
   const { transactions } = useTransactions()
@@ -27,54 +28,52 @@ export function RecentTransactions() {
   }
 
   return (
-    <Card>
-      <CardHeader className="p-3 sm:p-4 lg:p-6">
-        <CardTitle className="text-base sm:text-lg">Transações Recentes</CardTitle>
-        <CardDescription className="text-sm">Últimas movimentações financeiras</CardDescription>
-      </CardHeader>
-      <CardContent className="p-3 sm:p-4 lg:p-6 pt-0">
-        {recentTransactions.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground text-sm">Nenhuma transação registrada ainda.</p>
-          </div>
-        ) : (
-          <div className="space-y-3 sm:space-y-4">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2 rounded-full ${
-                      transaction.type === "receita" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                    }`}
-                  >
-                    {transaction.type === "receita" ? (
-                      <TrendingUp className="h-4 w-4" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm leading-tight">{transaction.description}</p>
-                    <p className="text-xs text-muted-foreground leading-tight">
-                      {getTruckName(transaction.truckId) || getDriverName(transaction.driverId) || "Geral"} •{" "}
-                      {new Date(transaction.date).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
+    <div className="p-6">
+      <div className="mb-6 space-y-1">
+        <h3 className="text-lg font-bold tracking-tight">Transações Recentes</h3>
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Últimas movimentações financeiras</p>
+      </div>
+      {recentTransactions.length === 0 ? (
+        <div className="text-center py-12 bg-muted/5 rounded-3xl border border-dashed border-border/60">
+          <p className="text-muted-foreground text-sm font-medium">Nenhuma transação registrada ainda.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {recentTransactions.map((transaction) => (
+            <div key={transaction.id} className="group flex items-center justify-between p-4 bg-background border border-border/40 rounded-2xl hover:border-primary/20 transition-all duration-300 hover:shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl transition-colors ${
+                  transaction.type === "receita" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                }`}>
+                  {transaction.type === "receita" ? (
+                    <TrendingUp className="h-5 w-5" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5" />
+                  )}
                 </div>
-                <div className="text-right">
-                  <p className={`font-medium text-sm sm:text-base ${transaction.type === "receita" ? "text-green-600" : "text-red-600"}`}>
-                    {transaction.type === "receita" ? "+" : "-"}R${" "}
-                    {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                <div>
+                  <p className="font-bold text-sm tracking-tight text-foreground/90">{transaction.description}</p>
+                  <p className="text-[11px] text-muted-foreground/70 font-semibold tracking-wide mt-1">
+                    {getTruckName(transaction.truckId) || getDriverName(transaction.driverId) || "GERAL"} •{" "}
+                    {new Date(transaction.date).toLocaleDateString("pt-BR")}
                   </p>
-                  <Badge variant={transaction.type === "receita" ? "default" : "secondary"} className="text-xs mt-1">
-                    {transaction.type}
-                  </Badge>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              <div className="text-right">
+                <p className={`font-extrabold text-base tracking-tight ${transaction.type === "receita" ? "text-green-600" : "text-red-600"}`}>
+                  {transaction.type === "receita" ? "+" : "-"} R${" "}
+                  {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+                <Badge className={cn("text-[9px] font-black px-2 py-[2px] rounded-sm border-none shadow-none uppercase mt-1 tracking-wider", 
+                  transaction.type === "receita" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                )}>
+                  {transaction.type}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

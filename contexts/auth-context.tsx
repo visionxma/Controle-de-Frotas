@@ -49,9 +49,9 @@ interface AuthContextType {
   updateUserData: (name: string, company: string) => Promise<boolean>
   resetPassword: (email: string) => Promise<boolean>
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>
-  createCollaborator: (name: string, email: string, password: string) => Promise<boolean>
+  createCollaborator: (name: string, email: string, password: string, role?: "admin" | "collaborator") => Promise<boolean>
   getCollaborators: () => Promise<User[]>
-  updateCollaborator: (collaboratorId: string, name: string, email: string, password?: string) => Promise<boolean>
+  updateCollaborator: (collaboratorId: string, name: string, email: string, password?: string, role?: "admin" | "collaborator") => Promise<boolean>
   deleteCollaborator: (collaboratorId: string) => Promise<boolean>
   isLoading: boolean
   isAuthenticating: boolean
@@ -318,7 +318,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createCollaborator = async (name: string, email: string, password: string): Promise<boolean> => {
+  const createCollaborator = async (name: string, email: string, password: string, role: "admin" | "collaborator" = "collaborator"): Promise<boolean> => {
     // Usa um app Firebase secundário para criar o colaborador sem deslogar o admin.
     // createUserWithEmailAndPassword no app principal troca a sessão ativa — o app
     // secundário é isolado e descartado logo após o uso.
@@ -341,8 +341,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         adminId: user.id,
         adminEmail: user.email,
         company: user.company,
-        role: "collaborator",
-        permissions: {
+        role: role,
+        permissions: role === "admin" ? {
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        } : {
           canCreate: true,
           canRead: true,
           canUpdate: false,
@@ -352,6 +357,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       await signOut(secondaryAuth)
+      await deleteApp(secondaryApp) // Destroi a instância evitando memory leak e sobrecarga silenciosa
       return true
     } catch (error) {
       console.error("Erro ao criar colaborador:", error)
@@ -383,7 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: doc.data().name,
           email: doc.data().email,
           company: doc.data().company,
-          role: "collaborator" as const,
+          role: doc.data().role || "collaborator",
           adminId: doc.data().adminId,
           permissions: doc.data().permissions,
         }))
@@ -397,6 +403,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string,
     email: string,
     password?: string,
+    role?: "admin" | "collaborator",
   ): Promise<boolean> => {
     try {
       if (!user || user.role !== "admin") {
@@ -404,6 +411,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const updateData: any = { name, email }
+
+      if (role) {
+        updateData.role = role
+        updateData.permissions = role === "admin" ? {
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        } : {
+          canCreate: true,
+          canRead: true,
+          canUpdate: false,
+          canDelete: false,
+        }
+      }
 
       if (password) {
         // Nota: Em produção, seria necessário reautenticar o colaborador para alterar a senha

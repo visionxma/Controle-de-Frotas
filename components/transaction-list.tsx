@@ -11,6 +11,7 @@ import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { PermissionGate } from "@/components/permission-gate"
+import { RegisteredBy } from "./registered-by"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,49 +78,55 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
 
   return (
     <>
-      <Card>
-        <CardHeader className="responsive-card-padding">
-          <CardTitle className="text-base sm:text-lg">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent className="responsive-card-padding pt-0">
-          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar transações..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-10 sm:h-9"
-              />
+      <Card className="rounded-sm border-border/20 shadow-sm bg-white dark:bg-black/20 overflow-hidden mb-6">
+        <CardContent className="py-3 px-4">
+          <div className="flex flex-col lg:flex-row items-center gap-4">
+             <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+              <div className="p-1.5 bg-primary/10 rounded-sm">
+                <Search className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Filtros</h3>
             </div>
 
-            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-              <SelectTrigger className="h-10 sm:h-9">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="receita">Receitas</SelectItem>
-                <SelectItem value="despesa">Despesas</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 w-full items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar transações..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs font-medium border-border/10 rounded-sm"
+                />
+              </div>
 
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="h-10 sm:h-9">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+                <SelectTrigger className="h-9 text-xs font-medium border-border/10 rounded-sm">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todos</SelectItem>
+                  <SelectItem value="receita" className="text-xs">Receitas</SelectItem>
+                  <SelectItem value="despesa" className="text-xs">Despesas</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <div className="text-sm text-muted-foreground flex items-center justify-center sm:justify-start">
-              {filteredTransactions.length} transação(ões)
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-9 text-xs font-medium border-border/10 rounded-sm">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todas</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category} className="text-xs">
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter text-right lg:text-left">
+                {filteredTransactions.length} transação(ões) encontrada(s)
+              </div>
             </div>
           </div>
         </CardContent>
@@ -161,11 +168,6 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground mt-1">
                         <span>{new Date(transaction.date).toLocaleDateString("pt-BR")}</span>
                         <Badge variant="outline">{transaction.category}</Badge>
-                        {transaction.createdBy && (
-                          <Badge variant="secondary" className="text-xs">
-                            Registrado por: {transaction.createdBy}
-                          </Badge>
-                        )}
                         {getTruckName(transaction.truckId) && (
                           <Badge variant="secondary" className="hidden md:inline-flex text-xs">
                             {getTruckName(transaction.truckId)}
@@ -180,7 +182,7 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between lg:justify-end gap-3">
+                  <div className="flex items-center justify-between lg:justify-end gap-3 mt-4 lg:mt-0">
                     <div className="text-right">
                       <p
                         className={`font-bold text-sm sm:text-base ${transaction.type === "receita" ? "text-green-600" : "text-red-600"}`}
@@ -211,6 +213,10 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
                       </PermissionGate>
                     </div>
                   </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border/5">
+                   <RegisteredBy userName={transaction.createdBy} />
                 </div>
               </CardContent>
             </Card>

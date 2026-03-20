@@ -1,15 +1,19 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Poppins } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "@/components/ui/toaster"
 import { PWAInstallBanner } from "@/components/pwa-install-banner"
+import { GlobalWatermark } from "@/components/global-watermark"
 import { Suspense } from "react"
 import "./globals.css"
 
-const geistSans = Geist({ subsets: ["latin"] })
-const geistMono = Geist_Mono({ subsets: ["latin"] })
+const poppins = Poppins({ 
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  subsets: ["latin"],
+  variable: "--font-poppins"
+})
 
 export const metadata: Metadata = {
   title: "FroX - Controle de Frotas",
@@ -18,10 +22,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "https://i.imgur.com/kFQqWmh.jpeg", type: "image/png" },
-      { url: "https://i.imgur.com/kFQqWmh.jpeg", sizes: "32x32", type: "image/png" },
+      { url: "/frox.svg", type: "image/svg+xml" },
     ],
-    apple: [{ url: "https://i.imgur.com/kFQqWmh.jpeg", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/frox.svg", sizes: "192x192", type: "image/svg+xml" }],
   },
   appleWebApp: {
     capable: true,
@@ -50,10 +53,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className={`font-sans ${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="pt-BR" className={poppins.variable}>
+      <body className="font-poppins">
         <Suspense fallback={<div>Loading...</div>}>
           <AuthProvider>
+            <GlobalWatermark />
             {children}
             <Toaster />
             <PWAInstallBanner />

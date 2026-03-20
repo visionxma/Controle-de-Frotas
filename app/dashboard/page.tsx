@@ -47,20 +47,32 @@ export default function DashboardPage() {
     <ProtectedRoute>
       <OnboardingTour />
       <DashboardLayout>
-        <div className="mobile-spacing">
+        <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <PlanBanner />
 
-          <div className="flex items-center justify-between">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
             <div>
-              <h1 className="font-bold text-balance">Dashboard</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Visão geral completa da sua frota e operações</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Dashboard</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base font-medium">
+                Bem-vindo de volta! Aqui está o que está acontecendo com sua frota hoje.
+              </p>
             </div>
-            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="sm:size-default">
-              <Download className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Baixar PDF</span>
-            </Button>
+            
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={handleDownloadPDF} 
+                variant="outline" 
+                size="sm" 
+                className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary transition-all h-10 px-5 font-bold shadow-sm"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Relatório Geral
+              </Button>
+            </div>
           </div>
 
+          {/* Filters Section */}
           <DashboardFilters
             onPeriodChange={setSelectedPeriod}
             onTruckFilter={setSelectedTruck}
@@ -70,14 +82,23 @@ export default function DashboardPage() {
             selectedPeriod={selectedPeriod}
           />
 
+          {/* Metrics Section */}
           <EnhancedStatsCards period={selectedPeriod} truckFilter={selectedTruck} driverFilter={selectedDriver} />
 
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-            <RevenueExpenseChart period={selectedPeriod} truckFilter={selectedTruck} driverFilter={selectedDriver} />
-            <TripsOverview truckFilter={selectedTruck} driverFilter={selectedDriver} />
+          {/* Content Grid */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="bg-card border border-border/40 rounded-[2.5rem] p-6 shadow-sm">
+              <RevenueExpenseChart period={selectedPeriod} truckFilter={selectedTruck} driverFilter={selectedDriver} />
+            </div>
+            <div className="bg-card border border-border/40 rounded-[2.5rem] p-6 shadow-sm">
+              <TripsOverview truckFilter={selectedTruck} driverFilter={selectedDriver} />
+            </div>
           </div>
 
-          <RecentTransactions />
+          {/* Footer Section */}
+          <div className="bg-card border border-border/40 rounded-[2.5rem] p-2 shadow-sm">
+            <RecentTransactions />
+          </div>
         </div>
       </DashboardLayout>
     </ProtectedRoute>

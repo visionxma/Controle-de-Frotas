@@ -127,21 +127,34 @@ export default function DriversPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="mobile-spacing">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+        <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
             <div>
-              <h1 className="font-bold text-balance">Motoristas</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Gerencie seus motoristas</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl uppercase">Motoristas</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base font-medium">
+                Gerencie sua equipe de motoristas e acompanhe seu status.
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            
+            <div className="flex items-center gap-3">
               {!showForm && (
                 <>
-                  <Button onClick={handleDownloadPDF} variant="outline" className="h-10 sm:h-9">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Baixar PDF</span>
+                  <Button 
+                    onClick={handleDownloadPDF} 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary transition-all h-10 px-5 font-bold shadow-sm"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Equipe em PDF
                   </Button>
-                  <Button onClick={() => setShowForm(true)} className="h-10 sm:h-9">
-                    <Plus className="h-4 w-4 sm:mr-2" />
+                  <Button
+                    onClick={() => setShowForm(true)}
+                    size="sm"
+                    className="rounded-2xl bg-primary hover:bg-primary/90 transition-all h-10 px-5 font-bold shadow-lg shadow-primary/20"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
                     Novo Motorista
                   </Button>
                 </>

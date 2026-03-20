@@ -5,6 +5,15 @@ import { useAuth } from "@/contexts/auth-context"
 import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
+let cachedMachinery: Machinery[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
+
 export interface Machinery {
   id: string
   model: string
@@ -24,14 +33,29 @@ export interface Machinery {
 
 export function useMachinery() {
   const { user } = useAuth()
-  const [machinery, setMachinery] = useState<Machinery[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [machinery, setMachinery] = useState<Machinery[]>(cachedMachinery || [])
+  const [isLoading, setIsLoading] = useState(cachedMachinery === null)
 
   useEffect(() => {
     console.log("[v0] useMachinery - user:", user)
     console.log("[v0] useMachinery - user.id:", user?.id)
 
-    if (user) {
+    if (!user) {
+      console.log("[v0] useMachinery - usuário não autenticado")
+      setMachinery([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setMachinery(cachedMachinery || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
       let machineryQuery
 
       if (user.role === "admin") {
@@ -50,32 +74,38 @@ export function useMachinery() {
 
       console.log("[v0] useMachinery - criando query para userId:", user.id)
 
-      const unsubscribe = onSnapshot(
+      globalUnsubscribe = onSnapshot(
         machineryQuery,
-        (snapshot) => {
+        (snapshot: any) => {
           console.log("[v0] useMachinery - snapshot recebido, docs:", snapshot.docs.length)
-          const machineryData = snapshot.docs.map((doc) => ({
+          const machineryData = snapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data(),
           })) as Machinery[]
 
-          setMachinery(machineryData)
-          setIsLoading(false)
+          cachedMachinery = machineryData
+          notify()
         },
-        (error) => {
+        (error: any) => {
           console.error("[v0] useMachinery - Erro ao carregar máquinas:", error)
           console.error("[v0] useMachinery - Error code:", error.code)
           console.error("[v0] useMachinery - Error message:", error.message)
-          setMachinery([])
-          setIsLoading(false)
+          cachedMachinery = []
+          notify()
         },
       )
-
-      return () => unsubscribe()
-    } else {
-      console.log("[v0] useMachinery - usuário não autenticado")
-      setMachinery([])
+    } else if (cachedMachinery !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedMachinery = null
+      }
     }
   }, [user])
 

@@ -51,7 +51,9 @@ export function PWAInstallBanner() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm mb-1">Instalar FroX</h3>
+          <h3 className="font-semibold text-sm mb-1 flex items-center gap-1.5 leading-none">
+            Instalar <img src="/frox.svg" alt="FroX" className="h-4 w-auto brightness-0 dark:brightness-100 invert dark:invert-0" />
+          </h3>
           <p className="text-xs text-muted-foreground mb-3">
             {isMobile
               ? "Adicione o app à sua tela inicial para acesso rápido"

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -15,16 +16,26 @@ import { SearchFilter } from "@/components/search-filter"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 
 export default function TripsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const tripIdParam = searchParams.get("tripId")
+
   const [showForm, setShowForm] = useState(false)
   const [showCompleteForm, setShowCompleteForm] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
   const [completingTrip, setCompletingTrip] = useState<Trip | null>(null)
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
   const { trips, isLoading, addTrip, completeTrip, deleteTrip } = useTrips()
+
+  const selectedTrip = useMemo(() => {
+    if (!tripIdParam || !trips) return null
+    return trips.find(t => t.id === tripIdParam) || null
+  }, [tripIdParam, trips])
+
+  const showDetails = !!selectedTrip
   const { toast } = useToast()
   const { generateTripsReport } = usePdfReports()
 
@@ -67,6 +78,8 @@ export default function TripsPage() {
     endKm: number
     endDate: string
     endTime: string
+    refuelingLiters: number
+    fuelConsumption: number
   }) => {
     if (!completingTrip) return
 
@@ -124,16 +137,20 @@ export default function TripsPage() {
   }
 
   const handleViewDetails = (trip: Trip) => {
-    setSelectedTrip(trip)
-    setShowDetails(true)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tripId", trip.id)
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   const handleCancel = () => {
     setShowForm(false)
     setShowCompleteForm(false)
-    setShowDetails(false)
     setCompletingTrip(null)
-    setSelectedTrip(null)
+    if (tripIdParam) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("tripId")
+      router.push(`${pathname}?${params.toString()}`)
+    }
   }
 
   const handleDownloadPDF = () => {
@@ -162,21 +179,34 @@ export default function TripsPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="mobile-spacing">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+        <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
             <div>
-              <h1 className="font-bold text-balance">Viagens</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Gerencie as viagens da sua frota</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl uppercase">Viagens</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base font-medium">
+                Monitore e gerencie todas as viagens da sua frota em tempo real.
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            
+            <div className="flex items-center gap-3">
               {!showForm && !showCompleteForm && !showDetails && (
                 <>
-                  <Button onClick={handleDownloadPDF} variant="outline" className="h-10 sm:h-9">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Baixar PDF</span>
+                  <Button 
+                    onClick={handleDownloadPDF} 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary transition-all h-10 px-5 font-bold shadow-sm"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Viagens em PDF
                   </Button>
-                  <Button onClick={() => setShowForm(true)} className="h-10 sm:h-9">
-                    <Plus className="h-4 w-4 sm:mr-2" />
+                  <Button
+                    onClick={() => setShowForm(true)}
+                    size="sm"
+                    className="rounded-2xl bg-primary hover:bg-primary/90 transition-all h-10 px-5 font-bold shadow-lg shadow-primary/20"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
                     Nova Viagem
                   </Button>
                 </>

@@ -106,20 +106,33 @@ export default function FinancePage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="mobile-spacing">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+        <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
             <div>
-              <h1 className="font-bold text-balance">Financeiro</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Controle suas receitas e despesas</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl uppercase">Financeiro</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base font-medium">
+                Controle suas receitas e despesas com visibilidade total do seu fluxo de caixa.
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={handleDownloadPDF} variant="outline" className="h-10 sm:h-9">
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Baixar PDF</span>
+            
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={handleDownloadPDF} 
+                variant="outline" 
+                size="sm" 
+                className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary transition-all h-10 px-5 font-bold shadow-sm"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Fluxo em PDF
               </Button>
               {!showForm && (
-                <Button onClick={() => setShowForm(true)} className="h-10 sm:h-9">
-                  <Plus className="h-4 w-4 sm:mr-2" />
+                <Button
+                  onClick={() => setShowForm(true)}
+                  size="sm"
+                  className="rounded-2xl bg-primary hover:bg-primary/90 transition-all h-10 px-5 font-bold shadow-lg shadow-primary/20"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
                   Nova Transação
                 </Button>
               )}

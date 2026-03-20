@@ -2,9 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, orderBy, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useTrucks } from "./use-trucks"
+import { differenceInHours, differenceInDays } from "date-fns"
+
+// Modulo-level cache to share singleton across components (prevents multi-listeners memory leak and firestore read quota burst)
+let cachedTrips: Trip[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
 
 export interface TripPhoto {
   id: string
@@ -42,48 +53,82 @@ export interface Trip {
 
 export function useTrips() {
   const { user } = useAuth()
-  const [trips, setTrips] = useState<Trip[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [trips, setTrips] = useState<Trip[]>(cachedTrips || [])
+  const [isLoading, setIsLoading] = useState(cachedTrips === null)
   const { updateTruck, incrementTotalFuel, updateFuelLevel } = useTrucks()
 
   useEffect(() => {
-    if (user) {
-      let tripsQuery
+    if (!user) {
+      setTrips([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setTrips(cachedTrips || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
+      let tripsQuery;
 
       if (user.role === "admin") {
-        tripsQuery = query(collection(db, "trips"), or(where("userId", "==", user.id), where("adminId", "==", user.id)))
+        tripsQuery = query(collection(db, "trips"), or(where("userId", "==", user.id), where("adminId", "==", user.id)), orderBy("createdAt", "desc"), limit(200))
       } else if (user.role === "collaborator" && user.adminId) {
         tripsQuery = query(
           collection(db, "trips"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
+          orderBy("createdAt", "desc"), limit(200)
         )
       } else {
-        tripsQuery = query(collection(db, "trips"), where("userId", "==", user.id))
+        tripsQuery = query(collection(db, "trips"), where("userId", "==", user.id), orderBy("createdAt", "desc"), limit(200))
       }
 
-      const unsubscribe = onSnapshot(
-        tripsQuery,
-        (snapshot) => {
-          const tripsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Trip[]
+      const subscribeToQuery = (q: any) => {
+        return onSnapshot(
+          q,
+          (snapshot: any) => {
+            const tripsData = snapshot.docs.map((doc: any) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Trip[]
 
-          tripsData.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+            tripsData.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+            cachedTrips = tripsData
+            notify()
+          },
+          (error: any) => {
+            console.error("Erro na snapshot de trips:", error)
+            // Firebase pode lançar erro pedindo índice composto. Tenta fallback ignorando limit/orderBy.
+            if (error.message.includes("index")) {
+                console.warn("Fallback (Sem Index compôsto): Consultando DB inteiro...")
+                const fallbackQ = query(collection(db, "trips"), or(where("userId", "==", user.id), where("adminId", "==", user.id)))
+                globalUnsubscribe && globalUnsubscribe()
+                globalUnsubscribe = subscribeToQuery(fallbackQ)
+            } else {
+                cachedTrips = []
+                notify()
+            }
+          },
+        )
+      }
 
-          setTrips(tripsData)
-          setIsLoading(false)
-        },
-        (error) => {
-          setTrips([])
-          setIsLoading(false)
-        },
-      )
-
-      return () => unsubscribe()
-    } else {
-      setTrips([])
+      globalUnsubscribe = subscribeToQuery(tripsQuery)
+    } else if (cachedTrips !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedTrips = null
+      }
     }
   }, [user])
 
@@ -128,9 +173,11 @@ export function useTrips() {
     const start = new Date(`${startDate}T${startTime}`)
     const end = new Date(`${endDate}T${endTime}`)
 
-    const diffMs = end.getTime() - start.getTime()
-    const hours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100 // 2 casas decimais
-    const days = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100 // 2 casas decimais
+    const diffHours = differenceInHours(end, start)
+    const diffDays = differenceInDays(end, start)
+
+    const hours = Math.max(0, diffHours)
+    const days = Math.max(0, diffDays)
 
     return { hours, days }
   }

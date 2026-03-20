@@ -47,7 +47,7 @@ interface Step {
 const steps: Step[] = [
   {
     id: "welcome",
-    title: "Bem-vindo ao FroX!",
+    title: "Bem-vindo!",
     description: "Tudo que você precisa para gerenciar sua frota com eficiência. Deixa a gente te mostrar como funciona.",
     cards: [],
     isWelcome: true,
@@ -127,7 +127,7 @@ const steps: Step[] = [
   {
     id: "final",
     title: "Tudo Pronto!",
-    description: "Você já conhece o FroX. Agora é só começar a cadastrar sua frota e aproveitar ao máximo.",
+    description: "Você já conhece o sistema. Agora é só começar a cadastrar sua frota e aproveitar ao máximo.",
     cards: [],
     isFinal: true,
   },
@@ -204,7 +204,7 @@ export function OnboardingTour() {
                 <Truck className="h-8 w-8 text-red-500" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-red-500 mb-1">FroX</p>
+                <img src="/frox.svg" alt="FroX" className="h-6 w-auto mx-auto mb-2" />
                 <h2 className="text-2xl font-bold text-white">{step.title}</h2>
                 <p className="mt-2 text-sm text-white/55 leading-relaxed">{step.description}</p>
               </div>

@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, orderBy, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+
+// Modulo-level cache to share singleton across components
+let cachedTransactions: Transaction[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
 
 export interface Transaction {
   id: string
@@ -26,50 +36,93 @@ export interface Transaction {
 
 export function useTransactions() {
   const { user } = useAuth()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [transactions, setTransactions] = useState<Transaction[]>(cachedTransactions || [])
+  const [isLoading, setIsLoading] = useState(cachedTransactions === null)
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
+      setTransactions([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setTransactions(cachedTransactions || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
       let transactionsQuery
 
       if (user.role === "admin") {
         transactionsQuery = query(
           collection(db, "transactions"),
           or(where("userId", "==", user.id), where("adminId", "==", user.id)),
+          orderBy("createdAt", "desc"),
+          limit(500)
         )
       } else if (user.role === "collaborator" && user.adminId) {
         transactionsQuery = query(
           collection(db, "transactions"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
+          orderBy("createdAt", "desc"),
+          limit(500)
         )
       } else {
-        transactionsQuery = query(collection(db, "transactions"), where("userId", "==", user.id))
+        transactionsQuery = query(
+          collection(db, "transactions"), 
+          where("userId", "==", user.id),
+          orderBy("createdAt", "desc"),
+          limit(500)
+        )
       }
 
-      const unsubscribe = onSnapshot(
-        transactionsQuery,
-        (snapshot) => {
-          const transactionsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Transaction[]
+      const subscribeToQuery = (q: any) => {
+        return onSnapshot(
+          q,
+          (snapshot: any) => {
+            const transactionsData = snapshot.docs.map((doc: any) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Transaction[]
 
-          transactionsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            // Fallback locale sorting to maintain correctness if DB index fails
+            transactionsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-          setTransactions(transactionsData)
-          setIsLoading(false)
-        },
-        (error) => {
-          setTransactions([])
-          setIsLoading(false)
-        },
-      )
+            cachedTransactions = transactionsData
+            notify()
+          },
+          (error: any) => {
+            console.error("Erro na snapshot de transactions:", error)
+            if (error.message.includes("index")) {
+                console.warn("Fallback (Sem Index compôsto): Consultando DB inteiro...")
+                const fallbackQ = query(collection(db, "transactions"), or(where("userId", "==", user.id), where("adminId", "==", user.id)))
+                globalUnsubscribe && globalUnsubscribe()
+                globalUnsubscribe = subscribeToQuery(fallbackQ)
+            } else {
+                cachedTransactions = []
+                notify()
+            }
+          },
+        )
+      }
 
-      return () => unsubscribe()
-    } else {
-      setTransactions([])
+      globalUnsubscribe = subscribeToQuery(transactionsQuery)
+    } else if (cachedTransactions !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedTransactions = null
+      }
     }
   }, [user])
 

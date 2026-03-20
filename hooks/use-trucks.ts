@@ -16,6 +16,16 @@ import {
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
+// Modulo-level cache to share singleton across components (prevents multi-listeners memory leak and firestore read quota burst)
+let cachedTrucks: Truck[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
+
 export interface Truck {
   id: string
   plate: string
@@ -36,11 +46,25 @@ export interface Truck {
 
 export function useTrucks() {
   const { user } = useAuth()
-  const [trucks, setTrucks] = useState<Truck[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [trucks, setTrucks] = useState<Truck[]>(cachedTrucks || [])
+  const [isLoading, setIsLoading] = useState(cachedTrucks === null)
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
+      setTrucks([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setTrucks(cachedTrucks || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
       let trucksQuery
 
       if (user.role === "admin") {
@@ -57,27 +81,35 @@ export function useTrucks() {
         trucksQuery = query(collection(db, "trucks"), where("userId", "==", user.id))
       }
 
-      const unsubscribe = onSnapshot(
+      globalUnsubscribe = onSnapshot(
         trucksQuery,
-        (snapshot) => {
-          const trucksData = snapshot.docs.map((doc) => ({
+        (snapshot: any) => {
+          const trucksData = snapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data(),
           })) as Truck[]
 
-          setTrucks(trucksData)
-          setIsLoading(false)
+          cachedTrucks = trucksData
+          notify()
         },
-        (error) => {
-          setTrucks([])
-          setIsLoading(false)
+        (error: any) => {
+          console.error("Erro na snapshot de trucks:", error)
+          cachedTrucks = []
+          notify()
         },
       )
-
-      return () => unsubscribe()
-    } else {
-      setTrucks([])
+    } else if (cachedTrucks !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedTrucks = null
+      }
     }
   }, [user])
 

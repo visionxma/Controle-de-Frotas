@@ -4,9 +4,10 @@ import { useState, useMemo } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
-import { Plus, Download, AlertTriangle } from "lucide-react"
+import { Plus, Download, LayoutGrid, List as ListIcon, AlertTriangle, ArrowRight } from "lucide-react"
 import { TruckForm } from "@/components/truck-form"
 import { TruckList } from "@/components/truck-list"
+import Link from "next/link"
 import { useTrucks, type Truck } from "@/hooks/use-trucks"
 import { useToast } from "@/hooks/use-toast"
 import { SearchFilter } from "@/components/search-filter"
@@ -129,26 +130,36 @@ export default function TrucksPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="mobile-spacing">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+        <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
             <div>
-              <h1 className="font-bold text-balance">Caminhões</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Gerencie sua frota de caminhões</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl uppercase">Caminhões</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base font-medium">
+                Gerencie sua frota de caminhões com facilidade e precisão.
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            
+            <div className="flex items-center gap-3">
               {!showForm && (
                 <>
-                  <Button onClick={handleDownloadPDF} variant="outline" className="h-10 sm:h-9">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Baixar PDF</span>
+                  <Button 
+                    onClick={handleDownloadPDF} 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-2xl border-border/40 hover:bg-primary/5 hover:text-primary transition-all h-10 px-5 font-bold shadow-sm"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Frota em PDF
                   </Button>
                   <Button
                     onClick={() => setShowForm(true)}
-                    className="h-10 sm:h-9"
+                    size="sm"
+                    className="rounded-2xl bg-primary hover:bg-primary/90 transition-all h-10 px-5 font-bold shadow-lg shadow-primary/20"
                     disabled={isAtTruckLimit}
-                    title={isAtTruckLimit ? "Limite de caminhões do plano atingido" : undefined}
+                    title={isAtTruckLimit ? "Limite do plano atingido" : undefined}
                   >
-                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <Plus className="h-4 w-4 mr-2" />
                     Novo Caminhão
                   </Button>
                 </>
@@ -157,11 +168,25 @@ export default function TrucksPage() {
           </div>
 
           {isAtTruckLimit && !showForm && (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 p-4 text-sm text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>
-                Você atingiu o limite de caminhões do seu plano atual. Para cadastrar mais caminhões, entre em contato com o suporte para atualizar seu plano.
-              </span>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-red-500/5 dark:bg-red-500/10 border border-red-500/10 p-4 rounded-sm text-sm text-red-600 dark:text-red-400 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-red-500/10 rounded-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <p className="font-bold tracking-tight">
+                  Você atingiu o limite de caminhões do seu plano. Para cadastrar mais, atualize sua assinatura.
+                </p>
+              </div>
+              <Link href="/plans" className="w-full sm:w-auto">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold h-9 px-4 shadow-lg shadow-red-500/20 w-full sm:w-auto"
+                >
+                  Trocar plano
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           )}
 

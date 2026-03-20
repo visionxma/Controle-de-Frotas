@@ -2,9 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, limit, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useMachinery } from "./use-machinery"
+import { differenceInDays, parseISO } from "date-fns"
+
+let cachedRentals: Rental[] | null = null;
+let globalUnsubscribe: (() => void) | null = null;
+let listenerCount = 0;
+const subscribers = new Set<() => void>();
+
+function notify() {
+  subscribers.forEach((callback) => callback());
+}
 
 export interface Rental {
   id: string
@@ -30,12 +40,26 @@ export interface Rental {
 
 export function useRentals() {
   const { user } = useAuth()
-  const [rentals, setRentals] = useState<Rental[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [rentals, setRentals] = useState<Rental[]>(cachedRentals || [])
+  const [isLoading, setIsLoading] = useState(cachedRentals === null)
   const { updateMachinery } = useMachinery()
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
+      setRentals([])
+      setIsLoading(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      setRentals(cachedRentals || [])
+      setIsLoading(false)
+    }
+
+    subscribers.add(handleUpdate)
+    listenerCount++
+
+    if (listenerCount === 1 && !globalUnsubscribe) {
       console.log("[v0] useRentals - user:", user)
       console.log("[v0] useRentals - user.id:", user.id)
 
@@ -45,45 +69,73 @@ export function useRentals() {
         rentalsQuery = query(
           collection(db, "rentals"),
           or(where("userId", "==", user.id), where("adminId", "==", user.id)),
+          orderBy("createdAt", "desc"),
+          limit(200)
         )
       } else if (user.role === "collaborator" && user.adminId) {
         rentalsQuery = query(
           collection(db, "rentals"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
+          orderBy("createdAt", "desc"),
+          limit(200)
         )
       } else {
-        rentalsQuery = query(collection(db, "rentals"), where("userId", "==", user.id))
+        rentalsQuery = query(
+            collection(db, "rentals"), 
+            where("userId", "==", user.id),
+            orderBy("createdAt", "desc"),
+            limit(200)
+        )
       }
 
       console.log("[v0] useRentals - criando query para userId:", user.id)
 
-      const unsubscribe = onSnapshot(
-        rentalsQuery,
-        (snapshot) => {
-          console.log("[v0] useRentals - snapshot recebido, docs:", snapshot.docs.length)
-          const rentalsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Rental[]
+      const subscribeToQuery = (q: any) => {
+        return onSnapshot(
+          q,
+          (snapshot: any) => {
+            console.log("[v0] useRentals - snapshot recebido, docs:", snapshot.docs.length)
+            const rentalsData = snapshot.docs.map((doc: any) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Rental[]
 
-          rentalsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            rentalsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-          setRentals(rentalsData)
-          setIsLoading(false)
-        },
-        (error) => {
-          console.error("Erro ao carregar locações:", error)
-          console.log("[v0] useRentals - Error code:", error.code)
-          console.log("[v0] useRentals - Error message:", error.message)
-          setRentals([])
-          setIsLoading(false)
-        },
-      )
+            cachedRentals = rentalsData
+            notify()
+          },
+          (error: any) => {
+            console.error("Erro ao carregar locações:", error)
+            if (error.message.includes("index")) {
+                console.warn("Fallback: indexing erro em rentals, recaindo sem limit")
+                const fallbackQ = query(
+                  collection(db, "rentals"),
+                  or(where("userId", "==", user.id), where("adminId", "==", user.id))
+                )
+                globalUnsubscribe && globalUnsubscribe()
+                globalUnsubscribe = subscribeToQuery(fallbackQ)
+            } else {
+                cachedRentals = []
+                notify()
+            }
+          },
+        )
+      }
 
-      return () => unsubscribe()
-    } else {
-      setRentals([])
+      globalUnsubscribe = subscribeToQuery(rentalsQuery)
+    } else if (cachedRentals !== null) {
       setIsLoading(false)
+    }
+
+    return () => {
+      subscribers.delete(handleUpdate)
+      listenerCount--
+      if (listenerCount === 0 && globalUnsubscribe) {
+        globalUnsubscribe()
+        globalUnsubscribe = null
+        cachedRentals = null
+      }
     }
   }, [user])
 
@@ -144,11 +196,12 @@ export function useRentals() {
     const totalHours = rental.finalHours - rental.initialHours
     const totalValue = totalHours * rental.hourlyRate
 
-    // Calcular dias trabalhados
-    const startDate = new Date(rental.date)
-    const endDate = new Date(rental.endDate || rental.date)
-    const timeDiff = endDate.getTime() - startDate.getTime()
-    const workingDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1
+    // Calcular dias trabalhados com precisão
+    const startDate = parseISO(rental.date)
+    const endDate = rental.endDate ? parseISO(rental.endDate) : startDate
+    
+    // Calcula diferença real de calendário + 1 dia integral (começo do dia inicial até o final do dia final)
+    const workingDays = differenceInDays(endDate, startDate) + 1
 
     // Horas efetivas (assumindo 8 horas por dia útil)
     const effectiveHours = workingDays * 8
