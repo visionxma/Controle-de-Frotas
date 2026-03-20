@@ -93,9 +93,7 @@ export default function LoginPage() {
       <Card className="relative z-10 w-full max-w-md shadow-2xl rounded-[2.5rem] border border-white/10 backdrop-blur-xl bg-white/95 dark:bg-black/80 animate-in fade-in zoom-in-95 duration-700 overflow-hidden">
         <CardHeader className="text-center space-y-6 pt-10 px-8">
           <div className="flex justify-center">
-            <div className="p-4 bg-primary/5 rounded-[2rem] shadow-inner">
-              <img src="/frox.svg" alt="FroX" className="h-10 w-auto" />
-            </div>
+            <img src="/FroX-Preto.svg" alt="FroX" className="h-14 w-auto mb-2" />
           </div>
           <div className="space-y-2">
             <CardTitle className="text-3xl font-extrabold tracking-tight uppercase">Bem-vindo</CardTitle>

@@ -54,12 +54,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Se não tem customer salvo ou ele não existe mais, cria um novo
-    if (!stripeCustomerId) {
+    if (!stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
       const customer = await stripe.customers.create({
         email: userEmail,
         metadata: { userId },
       })
       stripeCustomerId = customer.id
+    }
+
+    // --- DEVELOPMENT FALLBACK: MOCK CHECKOUT SE FALTAR CHAVE ---
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.warn("[CHECKOUT] Stripe SDK não configurado. Simulando pagamento automático na base de dados para testes...")
+      try {
+        const db = getAdminDb()
+        await db.collection("users").doc(userId).set({
+           subscription_status: "active",
+           plan_type: planType,
+           max_trucks: maxTrucks,
+           stripe_customer_id: "mock_customer_123",
+           stripe_subscription_id: "mock_sub_123"
+        }, { merge: true })
+      } catch (err) {
+        console.error("Modo Dev Fake Falhou (Firebase Admin missing?):", err)
+      }
+      return NextResponse.json({ url: `${appUrl}/plans/success?session_id=fake_dev_session_123` })
     }
 
     // --- Monta line items usando Price IDs persistentes ---

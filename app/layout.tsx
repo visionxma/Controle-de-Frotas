@@ -53,8 +53,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" className={poppins.variable}>
-      <body className="font-poppins">
+    <html lang="pt-BR" className={poppins.variable} suppressHydrationWarning>
+      <body className="font-poppins" suppressHydrationWarning>
         <Suspense fallback={<div>Loading...</div>}>
           <AuthProvider>
             <GlobalWatermark />

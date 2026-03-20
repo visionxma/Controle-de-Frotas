@@ -10,6 +10,7 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useTrucks } from "@/hooks/use-trucks"
 import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -271,26 +272,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </p>
             </div>
 
-            <div className="group relative">
-              <Button
-                variant="ghost"
-                className="h-10 w-10 p-0 rounded-sm bg-primary text-white font-black text-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center"
-              >
-                {user?.name?.charAt(0).toUpperCase() || "U"}
-              </Button>
-
-              {/* Logout Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-48 bg-background border border-border shadow-2xl rounded-sm py-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start gap-2 h-10 text-xs font-bold px-4 hover:bg-red-50 hover:text-red-600 transition-colors uppercase rounded-none"
+                  className="h-10 w-10 p-0 rounded-sm bg-primary text-white font-black text-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center cursor-pointer"
+                >
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-56 mt-1 border-border shadow-2xl rounded-sm p-1">
+                <DropdownMenuLabel className="font-black text-[10px] uppercase tracking-wider text-muted-foreground pb-2">{user?.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 h-10 text-xs font-bold px-3 text-red-600 hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700 transition-colors uppercase rounded-sm cursor-pointer mt-1"
                   onClick={logout}
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4 text-red-600" />
                   Sair da Conta
-                </Button>
-              </div>
-            </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

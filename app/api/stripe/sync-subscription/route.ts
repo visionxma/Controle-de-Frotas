@@ -23,6 +23,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // --- DEVELOPMENT FALLBACK ---
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.warn("[sync-subscription] Stripe Keys ausentes. Falhando check silenciosamente para não quebrar a tela.")
+      return NextResponse.json({ activated: false, reason: "Modo dev: chaves ausentes" })
+    }
+
     // 1. Busca customer no Stripe pelo email
     const customers = await stripe.customers.list({ email, limit: 5 })
 
