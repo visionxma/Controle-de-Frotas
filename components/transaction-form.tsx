@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { CurrencyInput } from "@/components/currency-input"
 import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
@@ -122,23 +123,11 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Valor (R$) *</Label>
-              <Input
+              <Label htmlFor="amount">Valor *</Label>
+              <CurrencyInput
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0,00"
                 value={formData.amount}
-                onChange={(e) => {
-                  const value = e.target.value
-                  if (value === "") {
-                    handleChange("amount", 0)
-                  } else {
-                    const numValue = Math.round(Number.parseFloat(value) * 100) / 100
-                    handleChange("amount", isNaN(numValue) ? 0 : numValue)
-                  }
-                }}
+                onChange={(val) => handleChange("amount", val)}
                 required
               />
             </div>

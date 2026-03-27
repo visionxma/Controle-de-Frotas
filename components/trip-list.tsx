@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Truck, User, Trash2, CheckCircle, DollarSign, Weight, Fuel } from "lucide-react"
+import { MapPin, Truck, User, Trash2, CheckCircle, DollarSign, Weight, Fuel, FileText } from "lucide-react"
 import { RegisteredBy } from "./registered-by"
 import type { Trip } from "@/hooks/use-trips"
 
@@ -12,10 +12,11 @@ interface TripListProps {
   onComplete: (trip: Trip) => void
   onDelete: (id: string) => void
   onViewDetails?: (trip: Trip) => void
+  onGenerateReport?: (trip: Trip) => void
   isLoading: boolean
 }
 
-export function TripList({ trips, onComplete, onDelete, onViewDetails, isLoading }: TripListProps) {
+export function TripList({ trips, onComplete, onDelete, onViewDetails, onGenerateReport, isLoading }: TripListProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -82,13 +83,24 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, isLoading
               </div>
               <div className="flex items-center gap-2">
                 {onViewDetails && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => onViewDetails(trip)} 
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onViewDetails(trip)}
                     className="h-9 px-4 rounded-2xl border-border/40 font-bold text-xs hover:bg-primary/5 hover:text-primary transition-all"
                   >
                     Detalhes
+                  </Button>
+                )}
+                {trip.status === "completed" && onGenerateReport && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onGenerateReport(trip)}
+                    className="h-9 px-4 rounded-2xl border-border/40 font-bold text-xs hover:bg-green-500/5 hover:text-green-600 hover:border-green-500/30 transition-all"
+                  >
+                    <FileText className="h-4 w-4 mr-1.5" />
+                    PDF
                   </Button>
                 )}
                 {trip.status === "in_progress" && (

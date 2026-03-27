@@ -589,10 +589,122 @@ export const usePdfReports = () => {
     },
     [generateHeader],
   )
+  const generateSingleTripReport = useCallback(
+    (trip: any) => {
+      const doc = new jsPDF()
+      const tripId = trip.id?.slice(-6) || "—"
+      let yPos = generateHeader(doc, `Relatório de Viagem #${tripId}`)
+
+      const kmTraveled = trip.endKm && trip.startKm ? trip.endKm - trip.startKm : 0
+      const fuelConsumed =
+        trip.fuelConsumption && kmTraveled > 0 ? kmTraveled / trip.fuelConsumption : 0
+
+      // Status
+      doc.setFontSize(14)
+      doc.setFont("helvetica", "bold")
+      doc.text("Informações Gerais", 20, yPos)
+      yPos += 10
+
+      const status = trip.status === "in_progress" ? "Em Andamento" : "Finalizada"
+
+      const generalData = [
+        ["Status", status],
+        ["Caminhão (Placa)", trip.truckPlate || "—"],
+        ["Motorista", trip.driverName || "—"],
+        ["Origem", trip.startLocation || "—"],
+        ["Destino", trip.endLocation || "—"],
+        ["KM Inicial", trip.startKm ? `${trip.startKm.toLocaleString("pt-BR")} km` : "—"],
+        ["KM Final", trip.endKm ? `${trip.endKm.toLocaleString("pt-BR")} km` : "—"],
+        ["KM Percorridos", kmTraveled > 0 ? `${kmTraveled.toLocaleString("pt-BR")} km` : "—"],
+        [
+          "Início",
+          trip.startDate
+            ? `${new Date(trip.startDate).toLocaleDateString("pt-BR")} ${trip.startTime || ""}`
+            : "—",
+        ],
+        [
+          "Fim",
+          trip.endDate
+            ? `${new Date(trip.endDate).toLocaleDateString("pt-BR")} ${trip.endTime || ""}`
+            : "—",
+        ],
+      ]
+
+      if (trip.cargoDescription) {
+        generalData.push(["Descrição da Carga", trip.cargoDescription])
+      }
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Campo", "Valor"]],
+        body: generalData,
+        theme: "grid",
+        headStyles: { fillColor: [168, 85, 247] },
+        margin: { left: 20, right: 20 },
+        columnStyles: { 0: { cellWidth: 60, fontStyle: "bold" } },
+      })
+
+      yPos = (doc as any).lastAutoTable.finalY + 15
+
+      // Fuel section
+      if (trip.status === "completed") {
+        doc.setFontSize(14)
+        doc.setFont("helvetica", "bold")
+        doc.text("Dados de Combustível", 20, yPos)
+        yPos += 10
+
+        const remainingFuel =
+          trip.refuelingLiters && fuelConsumed > 0
+            ? Math.max(0, trip.refuelingLiters - fuelConsumed)
+            : 0
+
+        const fuelData: string[][] = []
+        if (trip.fuelConsumption) {
+          fuelData.push(["Consumo Médio", `${trip.fuelConsumption.toFixed(2)} km/L`])
+        }
+        if (trip.refuelingLiters) {
+          fuelData.push(["Abastecimento Total", `${trip.refuelingLiters.toFixed(2)} L`])
+        }
+        if (fuelConsumed > 0) {
+          fuelData.push(["Combustível Consumido", `${fuelConsumed.toFixed(2)} L`])
+        }
+        if (remainingFuel > 0) {
+          fuelData.push(["Combustível Restante", `${remainingFuel.toFixed(2)} L`])
+        }
+
+        if (fuelData.length > 0) {
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Métrica", "Valor"]],
+            body: fuelData,
+            theme: "grid",
+            headStyles: { fillColor: [168, 85, 247] },
+            margin: { left: 20, right: 20 },
+            columnStyles: { 0: { cellWidth: 60, fontStyle: "bold" } },
+          })
+          yPos = (doc as any).lastAutoTable.finalY + 15
+        }
+      }
+
+      // Registered by
+      if (trip.createdBy) {
+        doc.setFontSize(9)
+        doc.setFont("helvetica", "italic")
+        doc.setTextColor(150, 150, 150)
+        doc.text(`Registrado por: ${trip.createdBy}`, 20, yPos)
+      }
+
+      const filename = `viagem-${tripId}-${trip.truckPlate || "frota"}.pdf`
+      doc.save(filename)
+    },
+    [generateHeader],
+  )
+
   return {
     generateDashboardReport,
     generateFinanceReport,
     generateTripsReport,
+    generateSingleTripReport,
     generateTrucksReport,
     generateDriversReport,
     generateMachineryReport,

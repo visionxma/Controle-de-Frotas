@@ -56,7 +56,9 @@ export function usePWAInstall() {
     }
 
     if ("serviceWorker" in navigator) {
-      // Service Worker available
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/" })
+        .catch(() => {})
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)

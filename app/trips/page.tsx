@@ -37,7 +37,7 @@ export default function TripsPage() {
 
   const showDetails = !!selectedTrip
   const { toast } = useToast()
-  const { generateTripsReport } = usePdfReports()
+  const { generateTripsReport, generateSingleTripReport } = usePdfReports()
 
   const handleSubmit = async (data: Omit<Trip, "id" | "userId" | "status">) => {
     setIsSubmitting(true)
@@ -157,6 +157,10 @@ export default function TripsPage() {
     generateTripsReport(trips)
   }
 
+  const handleGenerateSingleReport = (trip: Trip) => {
+    generateSingleTripReport(trip)
+  }
+
   const filteredTrips = useMemo(() => {
     return trips.filter((trip) => {
       const matchesSearch =
@@ -258,6 +262,7 @@ export default function TripsPage() {
               onComplete={handleComplete}
               onDelete={handleDelete}
               onViewDetails={handleViewDetails}
+              onGenerateReport={handleGenerateSingleReport}
               isLoading={isLoading}
             />
           )}

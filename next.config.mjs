@@ -14,6 +14,32 @@ const nextConfig = {
   // para tratá-los como externos — importados em runtime pelo Node, não
   // empacotados — o que resolve falhas de build em Vercel e ambientes similares.
   serverExternalPackages: ["firebase-admin", "@google-cloud/firestore", "google-gax"],
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+          {
+            key: "Service-Worker-Allowed",
+            value: "/",
+          },
+        ],
+      },
+      {
+        source: "/manifest.json",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

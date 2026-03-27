@@ -2,10 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Truck, User, MapPin, Calendar, Clock, Package, Fuel } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Truck, User, MapPin, Calendar, Clock, Package, Fuel, FileText } from "lucide-react"
 import type { Trip } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
+import { usePdfReports } from "@/hooks/use-pdf-reports"
 
 interface TripDetailsProps {
   trip: Trip
@@ -13,6 +15,7 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip }: TripDetailsProps) {
   const { calculateTripDuration } = useTrips()
+  const { generateSingleTripReport } = usePdfReports()
   const kmTraveled = trip.endKm ? trip.endKm - trip.startKm : 0
   const duration = calculateTripDuration(trip.startDate, trip.startTime, trip.endDate, trip.endTime)
 
@@ -30,9 +33,22 @@ export function TripDetails({ trip }: TripDetailsProps) {
               <Truck className="h-5 w-5" />
               Viagem #{trip.id.slice(-6)}
             </CardTitle>
-            <Badge variant={trip.status === "completed" ? "default" : "secondary"}>
-              {trip.status === "completed" ? "Finalizada" : "Em Andamento"}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant={trip.status === "completed" ? "default" : "secondary"}>
+                {trip.status === "completed" ? "Finalizada" : "Em Andamento"}
+              </Badge>
+              {trip.status === "completed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => generateSingleTripReport(trip)}
+                  className="h-8 px-3 rounded-xl border-border/40 font-bold text-xs hover:bg-green-500/5 hover:text-green-600 hover:border-green-500/30 transition-all"
+                >
+                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  Gerar PDF
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
