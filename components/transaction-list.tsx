@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, TrendingUp, TrendingDown, Search, Edit } from "lucide-react"
+import { Trash2, TrendingUp, TrendingDown, Search, Edit, Percent } from "lucide-react"
 import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
@@ -168,6 +168,12 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground mt-1">
                         <span>{new Date(transaction.date).toLocaleDateString("pt-BR")}</span>
                         <Badge variant="outline">{transaction.category}</Badge>
+                        {transaction.isCommission && (
+                          <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1 text-[10px]">
+                            <Percent className="h-2.5 w-2.5" />
+                            Comissão
+                          </Badge>
+                        )}
                         {getTruckName(transaction.truckId) && (
                           <Badge variant="secondary" className="hidden md:inline-flex text-xs">
                             {getTruckName(transaction.truckId)}

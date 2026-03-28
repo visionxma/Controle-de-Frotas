@@ -15,10 +15,10 @@ export function PlanBanner() {
   if (!user || user.subscription_status !== "active") return null
 
   const isCustom = user.plan_type === "custom"
-  const maxTrucks = user.max_trucks ?? 2
+  const maxTrucks = user.max_trucks ?? (isCustom ? null : 2)
   const usedTrucks = trucks.length
-  const remaining = maxTrucks - usedTrucks
-  const usagePercent = Math.min(100, Math.round((usedTrucks / maxTrucks) * 100))
+  const remaining = maxTrucks != null ? maxTrucks - usedTrucks : null
+  const usagePercent = maxTrucks ? Math.min(100, Math.round((usedTrucks / maxTrucks) * 100)) : 0
 
   const content = isCustom ? (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-2.5">
@@ -44,7 +44,7 @@ export function PlanBanner() {
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Ocupação</span>
           <span className={cn("text-xs font-black tracking-tighter", usagePercent >= 100 ? "text-primary" : "text-white")}>
-            {usedTrucks}/{maxTrucks}
+            {usedTrucks}/{maxTrucks ?? "..."}
           </span>
         </div>
       </div>
@@ -86,7 +86,7 @@ export function PlanBanner() {
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Ocupação</span>
           <span className={cn("text-xs font-black tracking-tighter", usagePercent >= 100 ? "text-primary" : "text-white")}>
-            {usedTrucks}/{maxTrucks}
+            {usedTrucks}/{maxTrucks ?? "..."}
           </span>
         </div>
       </div>

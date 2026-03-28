@@ -26,6 +26,7 @@ export interface Transaction {
   driverId?: string
   tripId?: string // Adicionado campo para associar transação a uma viagem
   rentalId?: string // Adicionado campo para associar transação a uma locação
+  isCommission?: boolean
   userId: string
   adminId?: string
   createdBy?: string // Name of the user who created this record

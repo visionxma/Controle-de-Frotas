@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { validateCPF, formatCPF, formatPhone, validateEmail, fetchCEP, formatCEP } from "@/lib/utils-validation"
-import { CheckCircle2, Search, Loader2 } from "lucide-react"
+import { CheckCircle2, Search, Loader2, Percent } from "lucide-react"
 import type { Driver } from "@/hooks/use-drivers"
 import { useToast } from "@/hooks/use-toast"
 
@@ -34,6 +34,7 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
     address: driver?.address || "",
     birthDate: driver?.birthDate || "",
     status: driver?.status || ("active" as const),
+    commissionPercentage: driver?.commissionPercentage ?? 0,
     cep: "",
   })
 
@@ -122,7 +123,10 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
     }
 
     const { cep, ...submitData } = formData
-    onSubmit(submitData)
+    onSubmit({
+      ...submitData,
+      commissionPercentage: submitData.commissionPercentage > 0 ? submitData.commissionPercentage : undefined,
+    })
   }
 
   const handleChange = (field: string, value: string) => {
@@ -329,6 +333,34 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
                   <SelectItem value="suspended">Suspenso</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="commissionPercentage" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                Comissão por Frete
+              </Label>
+              <div className="relative">
+                <Input
+                  id="commissionPercentage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="0"
+                  value={formData.commissionPercentage || ""}
+                  onChange={(e) => {
+                    const val = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
+                    setFormData((prev) => ({ ...prev, commissionPercentage: val }))
+                  }}
+                  className="h-11 rounded-sm border-border/40 pr-10"
+                />
+                <div className="absolute right-3 top-3 flex items-center gap-1 text-muted-foreground/50">
+                  <Percent className="h-4 w-4" />
+                </div>
+              </div>
+              <p className="text-[9px] text-muted-foreground/50 uppercase tracking-widest ml-1">
+                % sobre o valor do frete. 0 = sem comissão
+              </p>
             </div>
 
             <div className="space-y-2 md:col-span-2">

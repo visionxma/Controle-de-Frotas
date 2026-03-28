@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const syncAttemptedRef = useRef(false)
 
   useEffect(() => {
     // Verifica se o Firebase Auth está disponível
@@ -115,6 +116,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 stripe_subscription_id: userData.stripe_subscription_id ?? null,
                 onboarding_completed: userData.onboarding_completed ?? false,
               })
+
+              // Se a assinatura está ativa mas max_trucks não foi gravado (ex: webhook atrasado),
+              // sincroniza com o Stripe uma única vez para recuperar o valor correto.
+              if (
+                userData.subscription_status === "active" &&
+                (userData.max_trucks == null || userData.max_trucks === 0) &&
+                !syncAttemptedRef.current &&
+                firebaseUser.email
+              ) {
+                syncAttemptedRef.current = true
+                fetch(`/api/stripe/sync-subscription?userId=${firebaseUser.uid}&email=${encodeURIComponent(firebaseUser.email)}`)
+                  .then((r) => r.json())
+                  .catch(() => null)
+              }
             } else {
               setUser({
                 id: firebaseUser.uid,
@@ -154,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         )
       } else {
         setUser(null)
+        syncAttemptedRef.current = false
         setIsLoading(false)
       }
     })

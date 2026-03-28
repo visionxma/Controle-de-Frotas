@@ -38,6 +38,7 @@ export interface Driver {
   address?: string
   birthDate: string
   status: "active" | "inactive" | "suspended"
+  commissionPercentage?: number
   userId: string
   adminId?: string
   createdAt?: Date

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,12 +12,13 @@ import { CurrencyInput } from "@/components/currency-input"
 import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
-import { useTrips } from "@/hooks/use-trips" // Importado hook de viagens
-import { useRentals } from "@/hooks/use-rentals" // Importado hook de locações
+import { useTrips } from "@/hooks/use-trips"
+import { useRentals } from "@/hooks/use-rentals"
+import { Percent, TrendingDown } from "lucide-react"
 
 interface TransactionFormProps {
   transaction?: Transaction
-  onSubmit: (data: Omit<Transaction, "id" | "userId">) => void
+  onSubmit: (data: Omit<Transaction, "id" | "userId">, commission?: Omit<Transaction, "id" | "userId">) => void
   onCancel: () => void
   isLoading?: boolean
 }
@@ -33,14 +34,15 @@ const expenseCategories = [
   "Multas",
   "Alimentação",
   "Hospedagem",
+  "Comissão Motorista",
   "Outros",
 ]
 
 export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: TransactionFormProps) {
   const { trucks } = useTrucks()
   const { drivers } = useDrivers()
-  const { trips } = useTrips() // Adicionado hook de viagens
-  const { rentals } = useRentals() // Adicionado hook de locações
+  const { trips } = useTrips()
+  const { rentals } = useRentals()
 
   const [formData, setFormData] = useState({
     type: transaction?.type || ("receita" as const),
@@ -50,19 +52,25 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
     category: transaction?.category || "Frete",
     truckId: transaction?.truckId || undefined,
     driverId: transaction?.driverId || undefined,
-    tripId: transaction?.tripId || undefined, // Adicionado campo tripId
-    rentalId: transaction?.rentalId || undefined, // Adicionado campo rentalId
+    tripId: transaction?.tripId || undefined,
+    rentalId: transaction?.rentalId || undefined,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
+
+    const mainData: Omit<Transaction, "id" | "userId"> = {
       ...formData,
       truckId: formData.truckId || undefined,
       driverId: formData.driverId || undefined,
-      tripId: formData.tripId || undefined, // Incluído tripId no submit
-      rentalId: formData.rentalId || undefined, // Incluído rentalId no submit
-    })
+      tripId: formData.tripId || undefined,
+      rentalId: formData.rentalId || undefined,
+    }
+
+    // Gera a despesa de comissão apenas em novas receitas com motorista comissionado
+    const commissionData = buildCommission()
+
+    onSubmit(mainData, commissionData)
   }
 
   const handleChange = (field: string, value: string | number) => {
@@ -74,6 +82,38 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
 
   const completedTrips = trips.filter((trip) => trip.status === "completed")
   const completedRentals = rentals.filter((rental) => rental.status === "completed")
+
+  // Motorista selecionado com comissão
+  const selectedDriver = useMemo(
+    () => drivers.find((d) => d.id === formData.driverId),
+    [drivers, formData.driverId],
+  )
+
+  const commissionPct = selectedDriver?.commissionPercentage ?? 0
+  const commissionAmount =
+    !transaction && formData.type === "receita" && commissionPct > 0 && formData.amount > 0
+      ? Math.round(formData.amount * (commissionPct / 100) * 100) / 100
+      : 0
+
+  const showCommission = commissionAmount > 0
+
+  function buildCommission(): Omit<Transaction, "id" | "userId"> | undefined {
+    if (!showCommission || !selectedDriver) return undefined
+    return {
+      type: "despesa",
+      description: `Comissão ${selectedDriver.name} (${commissionPct}% do frete)`,
+      amount: commissionAmount,
+      date: formData.date,
+      category: "Comissão Motorista",
+      driverId: selectedDriver.id,
+      truckId: formData.truckId || undefined,
+      tripId: formData.tripId || undefined,
+      isCommission: true,
+    }
+  }
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 
   return (
     <Card>
@@ -211,7 +251,9 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="driverId">Motorista (opcional)</Label>
+              <Label htmlFor="driverId">
+                Motorista (opcional)
+              </Label>
               <Select value={formData.driverId || "none"} onValueChange={(value) => handleChange("driverId", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um motorista" />
@@ -221,6 +263,11 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
                   {drivers.map((driver) => (
                     <SelectItem key={driver.id} value={driver.id}>
                       {driver.name}
+                      {(driver.commissionPercentage ?? 0) > 0 && (
+                        <span className="ml-2 text-muted-foreground">
+                          ({driver.commissionPercentage}%)
+                        </span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -228,9 +275,38 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
             </div>
           </div>
 
+          {/* Preview da comissão */}
+          {showCommission && (
+            <div className="rounded-sm border border-orange-500/20 bg-orange-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="h-4 w-4 text-orange-400" />
+                <span className="text-xs font-black uppercase tracking-widest text-orange-400">
+                  Despesa de Comissão Gerada Automaticamente
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-foreground">
+                    Comissão — {selectedDriver?.name}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Percent className="h-3 w-3" />
+                    {commissionPct}% sobre {formatCurrency(formData.amount)}
+                  </p>
+                </div>
+                <span className="text-base font-black text-orange-400">
+                  − {formatCurrency(commissionAmount)}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">
+                Uma despesa de &quot;Comissão Motorista&quot; será registrada junto com esta receita.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Salvando..." : transaction ? "Atualizar" : "Adicionar"}
+              {isLoading ? "Salvando..." : transaction ? "Atualizar" : showCommission ? "Salvar com Comissão" : "Adicionar"}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar

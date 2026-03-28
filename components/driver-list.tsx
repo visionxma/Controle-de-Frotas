@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Phone, Mail } from "lucide-react"
+import { Trash2, Phone, Mail, Percent } from "lucide-react"
 import type { Driver } from "@/hooks/use-drivers"
 import { PermissionGate } from "@/components/permission-gate"
 import { DriverDetailsModal } from "./driver-details-modal"
@@ -187,6 +187,14 @@ export function DriverList({ drivers, onEdit, onDelete, isLoading }: DriverListP
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="h-4 w-4" />
                       <span className="text-xs font-medium truncate">{driver.email}</span>
+                    </div>
+                  )}
+                  {(driver.commissionPercentage ?? 0) > 0 && (
+                    <div className="flex items-center gap-2 text-orange-500 mt-1">
+                      <Percent className="h-4 w-4" />
+                      <span className="text-xs font-bold">
+                        {driver.commissionPercentage}% de comissão por frete
+                      </span>
                     </div>
                   )}
                 </div>

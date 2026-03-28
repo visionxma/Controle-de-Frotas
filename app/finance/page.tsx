@@ -20,7 +20,7 @@ export default function FinancePage() {
   const { toast } = useToast()
   const { generateFinanceReport } = usePdfReports()
 
-  const handleSubmit = async (data: Omit<Transaction, "id" | "userId">) => {
+  const handleSubmit = async (data: Omit<Transaction, "id" | "userId">, commission?: Omit<Transaction, "id" | "userId">) => {
     setIsSubmitting(true)
 
     try {
@@ -36,10 +36,18 @@ export default function FinancePage() {
         }
       } else {
         success = await addTransaction(data)
+
+        // Salva a despesa de comissão automaticamente junto com a receita
+        if (success && commission) {
+          await addTransaction(commission)
+        }
+
         if (success) {
           toast({
             title: "Transação adicionada",
-            description: "A transação foi registrada com sucesso.",
+            description: commission
+              ? "Receita e comissão do motorista registradas com sucesso."
+              : "A transação foi registrada com sucesso.",
           })
         }
       }
