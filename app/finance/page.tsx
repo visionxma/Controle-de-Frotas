@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Plus, Download } from "lucide-react"
 import { TransactionForm } from "@/components/transaction-form"
 import { TransactionList } from "@/components/transaction-list"
+import { FixedExpensesCard } from "@/components/fixed-expenses-card"
 import { useTransactions, type Transaction } from "@/hooks/use-transactions"
+import { useFixedExpenses } from "@/hooks/use-fixed-expenses"
 import { useToast } from "@/hooks/use-toast"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
+import { cn } from "@/lib/utils"
 
 export default function FinancePage() {
   const [showForm, setShowForm] = useState(false)
@@ -17,6 +20,7 @@ export default function FinancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction } = useTransactions()
+  const { totalMonthly: fixedMonthly } = useFixedExpenses()
   const { toast } = useToast()
   const { generateFinanceReport } = usePdfReports()
 
@@ -155,12 +159,57 @@ export default function FinancePage() {
               isLoading={isSubmitting}
             />
           ) : (
-            <TransactionList
-              transactions={transactions}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              isLoading={isLoading}
-            />
+            <>
+              {/* Resumo do mês atual incluindo despesas fixas */}
+              {(() => {
+                const currentMonth = new Date().getMonth()
+                const currentYear = new Date().getFullYear()
+                const monthTx = transactions.filter((t) => {
+                  const d = new Date(t.date)
+                  return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+                })
+                const totalReceita = monthTx.filter((t) => t.type === "receita").reduce((s, t) => s + t.amount, 0)
+                const totalDespesaTx = monthTx.filter((t) => t.type === "despesa").reduce((s, t) => s + t.amount, 0)
+                const totalDespesa = totalDespesaTx + fixedMonthly
+                const saldo = totalReceita - totalDespesa
+                const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="rounded-sm border border-border/20 bg-white dark:bg-black/20 shadow-sm px-5 py-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Receitas — Mês Atual</p>
+                      <p className="text-2xl font-black text-green-600 tabular-nums">{fmt(totalReceita)}</p>
+                    </div>
+                    <div className="rounded-sm border border-border/20 bg-white dark:bg-black/20 shadow-sm px-5 py-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Despesas — Mês Atual</p>
+                      <p className="text-2xl font-black text-red-600 tabular-nums">{fmt(totalDespesa)}</p>
+                      {fixedMonthly > 0 && (
+                        <p className="text-[10px] text-muted-foreground/40 mt-0.5">
+                          incl. {fmt(fixedMonthly)} em fixas
+                        </p>
+                      )}
+                    </div>
+                    <div className={cn(
+                      "rounded-sm border shadow-sm px-5 py-4",
+                      saldo >= 0 ? "border-green-500/20 bg-green-500/5" : "border-red-500/20 bg-red-500/5"
+                    )}>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Saldo — Mês Atual</p>
+                      <p className={cn("text-2xl font-black tabular-nums", saldo >= 0 ? "text-green-600" : "text-red-600")}>
+                        {fmt(saldo)}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <FixedExpensesCard />
+              <TransactionList
+                transactions={transactions}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                isLoading={isLoading}
+              />
+            </>
           )}
         </div>
       </DashboardLayout>

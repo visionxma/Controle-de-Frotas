@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, orderBy, limit } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Modulo-level cache to share singleton across components
@@ -58,26 +58,22 @@ export function useTransactions() {
     if (listenerCount === 1 && !globalUnsubscribe) {
       let transactionsQuery
 
+      // or() sem orderBy/limit evita exigência de índices compostos no Firestore.
+      // A ordenação é feita client-side no callback do onSnapshot.
       if (user.role === "admin") {
         transactionsQuery = query(
           collection(db, "transactions"),
           or(where("userId", "==", user.id), where("adminId", "==", user.id)),
-          orderBy("createdAt", "desc"),
-          limit(500)
         )
       } else if (user.role === "collaborator" && user.adminId) {
         transactionsQuery = query(
           collection(db, "transactions"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
-          orderBy("createdAt", "desc"),
-          limit(500)
         )
       } else {
         transactionsQuery = query(
-          collection(db, "transactions"), 
+          collection(db, "transactions"),
           where("userId", "==", user.id),
-          orderBy("createdAt", "desc"),
-          limit(500)
         )
       }
 

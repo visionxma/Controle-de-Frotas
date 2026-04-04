@@ -6,6 +6,7 @@ import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { useTransactions } from "@/hooks/use-transactions"
 import { useTrips } from "@/hooks/use-trips"
+import { useFixedExpenses } from "@/hooks/use-fixed-expenses"
 import { cn } from "@/lib/utils"
 
 interface EnhancedStatsCardsProps {
@@ -19,6 +20,7 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
   const { drivers } = useDrivers()
   const { getFilteredStats } = useTransactions()
   const { trips } = useTrips()
+  const { totalMonthly: fixedMonthly } = useFixedExpenses()
 
   const filteredTrucks = truckFilter ? trucks.filter((t) => t.id === truckFilter) : trucks
   const filteredDrivers = driverFilter ? drivers.filter((d) => d.id === driverFilter) : drivers
@@ -28,11 +30,13 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
     return true
   })
 
-  const { revenue, expenses, profit } = getFilteredStats(period, truckFilter, driverFilter, null)
+  const { revenue, expenses: txExpenses } = getFilteredStats(period, truckFilter, driverFilter, null)
 
-  console.log("[v0] EnhancedStatsCards - revenue:", revenue)
-  console.log("[v0] EnhancedStatsCards - expenses:", expenses)
-  console.log("[v0] EnhancedStatsCards - profit:", profit)
+  // Multiplica as despesas fixas mensais pelo número de meses do período selecionado
+  const periodMonths: Record<string, number> = { "7d": 7 / 30, "30d": 1, "3m": 3, "6m": 6, "1y": 12, all: 1 }
+  const fixedForPeriod = fixedMonthly * (periodMonths[period] ?? 1)
+  const expenses = txExpenses + fixedForPeriod
+  const profit = revenue - expenses
 
   const activeTrips = filteredTrips.filter((trip) => trip.status === "in_progress").length
   const completedTrips = filteredTrips.filter((trip) => trip.status === "completed").length

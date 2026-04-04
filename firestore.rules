@@ -97,5 +97,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
+
+    // -------------------------------
+    // FIXED EXPENSES
+    // -------------------------------
+    match /fixed_expenses/{expenseId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
   }
 }

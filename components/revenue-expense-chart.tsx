@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { useTransactions } from "@/hooks/use-transactions"
+import { useFixedExpenses } from "@/hooks/use-fixed-expenses"
 import { TrendingUp, TrendingDown, DollarSign, Wallet, ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,7 +31,13 @@ export function RevenueExpenseChart({
   driverFilter = null,
 }: RevenueExpenseChartProps) {
   const { getFilteredChartData } = useTransactions()
-  const chartData = getFilteredChartData(period, truckFilter, driverFilter, null)
+  const { totalMonthly: fixedMonthly } = useFixedExpenses()
+
+  // Adiciona as despesas fixas mensais a cada mês do gráfico
+  const chartData = getFilteredChartData(period, truckFilter, driverFilter, null).map((entry: any) => ({
+    ...entry,
+    despesa: entry.despesa + fixedMonthly,
+  }))
 
   const getDescription = () => {
     switch (period) {
