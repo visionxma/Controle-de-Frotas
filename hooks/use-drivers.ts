@@ -45,6 +45,10 @@ export interface Driver {
   updatedAt?: Date
   createdBy?: string // Name of the user who created this record
   createdByRole?: "admin" | "collaborator" // Role of the creator
+  // App mobile access fields
+  uid?: string
+  hasAppAccess?: boolean
+  role?: string
 }
 
 export function useDrivers() {

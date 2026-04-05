@@ -1,5 +1,6 @@
 import admin from "firebase-admin"
 import type { Firestore } from "firebase-admin/firestore"
+import type { Auth } from "firebase-admin/auth"
 
 let _db: Firestore | null = null
 
@@ -34,4 +35,10 @@ function getAdminDb(): Firestore {
   return _db
 }
 
-export { getAdminDb }
+function getAdminAuth(): Auth {
+  // Ensures the app is initialized before accessing auth
+  getAdminDb()
+  return admin.auth()
+}
+
+export { getAdminDb, getAdminAuth }

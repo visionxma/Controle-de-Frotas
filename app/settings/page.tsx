@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
 import { useBackup } from "@/hooks/use-backup"
+import { useDrivers } from "@/hooks/use-drivers"
+import type { Driver } from "@/hooks/use-drivers"
 import {
   Mail,
   Globe,
@@ -45,6 +47,9 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Smartphone,
+  CheckCircle2,
+  RotateCcw,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
@@ -73,8 +78,11 @@ export default function SettingsPage() {
     getCollaborators,
     updateCollaborator,
     deleteCollaborator,
+    createDriverAccess,
+    resetDriverPassword,
   } = useAuth()
   const { downloadBackup, importBackup, clearAllData } = useBackup()
+  const { drivers } = useDrivers()
 
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(user?.name || "")
@@ -105,6 +113,18 @@ export default function SettingsPage() {
   const [showNewCollaboratorPassword, setShowNewCollaboratorPassword] = useState(false)
   const [showEditCollaboratorPassword, setShowEditCollaboratorPassword] = useState(false)
   const [isSubmittingCollaborator, setIsSubmittingCollaborator] = useState(false)
+
+  // Estados para acesso de motoristas no app
+  const [selectedDriverForAccess, setSelectedDriverForAccess] = useState<Driver | null>(null)
+  const [isCreateDriverAccessDialogOpen, setIsCreateDriverAccessDialogOpen] = useState(false)
+  const [isResetDriverPasswordDialogOpen, setIsResetDriverPasswordDialogOpen] = useState(false)
+  const [driverAccessEmail, setDriverAccessEmail] = useState("")
+  const [driverAccessPassword, setDriverAccessPassword] = useState("")
+  const [driverResetPassword, setDriverResetPassword] = useState("")
+  const [driverResetPasswordConfirm, setDriverResetPasswordConfirm] = useState("")
+  const [showDriverAccessPassword, setShowDriverAccessPassword] = useState(false)
+  const [showDriverResetPassword, setShowDriverResetPassword] = useState(false)
+  const [isSubmittingDriverAccess, setIsSubmittingDriverAccess] = useState(false)
 
   const loadCollaborators = async () => {
     if (user?.role !== "admin") return
@@ -274,6 +294,82 @@ export default function SettingsPage() {
     setEditCollaboratorRole(collaborator.role)
     setEditCollaboratorPassword("")
     setIsEditCollaboratorDialogOpen(true)
+  }
+
+  const openCreateDriverAccessDialog = (driver: Driver) => {
+    setSelectedDriverForAccess(driver)
+    setDriverAccessEmail(driver.email || "")
+    setDriverAccessPassword("")
+    setShowDriverAccessPassword(false)
+    setIsCreateDriverAccessDialogOpen(true)
+  }
+
+  const openResetDriverPasswordDialog = (driver: Driver) => {
+    setSelectedDriverForAccess(driver)
+    setDriverResetPassword("")
+    setDriverResetPasswordConfirm("")
+    setShowDriverResetPassword(false)
+    setIsResetDriverPasswordDialogOpen(true)
+  }
+
+  const handleCreateDriverAccess = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedDriverForAccess || !driverAccessEmail.trim() || !driverAccessPassword.trim()) {
+      toast.error("Email e senha são obrigatórios")
+      return
+    }
+    if (driverAccessPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres")
+      return
+    }
+
+    setIsSubmittingDriverAccess(true)
+    try {
+      const result = await createDriverAccess(
+        selectedDriverForAccess.id,
+        driverAccessEmail.trim(),
+        driverAccessPassword,
+      )
+      if (result.success) {
+        toast.success(`Acesso criado com sucesso para ${selectedDriverForAccess.name}!`)
+        setIsCreateDriverAccessDialogOpen(false)
+        setSelectedDriverForAccess(null)
+      } else {
+        toast.error(result.error || "Erro ao criar acesso")
+      }
+    } finally {
+      setIsSubmittingDriverAccess(false)
+    }
+  }
+
+  const handleResetDriverPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedDriverForAccess || !driverResetPassword.trim()) {
+      toast.error("A nova senha é obrigatória")
+      return
+    }
+    if (driverResetPassword !== driverResetPasswordConfirm) {
+      toast.error("As senhas não coincidem")
+      return
+    }
+    if (driverResetPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres")
+      return
+    }
+
+    setIsSubmittingDriverAccess(true)
+    try {
+      const result = await resetDriverPassword(selectedDriverForAccess.id, driverResetPassword)
+      if (result.success) {
+        toast.success(`Senha redefinida com sucesso para ${selectedDriverForAccess.name}!`)
+        setIsResetDriverPasswordDialogOpen(false)
+        setSelectedDriverForAccess(null)
+      } else {
+        toast.error(result.error || "Erro ao redefinir senha")
+      }
+    } finally {
+      setIsSubmittingDriverAccess(false)
+    }
   }
 
   return (
@@ -662,6 +758,230 @@ export default function SettingsPage() {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Acesso de Motoristas no App */}
+            {user?.role === "admin" && (
+              <>
+                {/* Dialog: Criar Acesso */}
+                <Dialog open={isCreateDriverAccessDialogOpen} onOpenChange={setIsCreateDriverAccessDialogOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Criar Acesso no App Mobile</DialogTitle>
+                      <DialogDescription>
+                        Defina email e senha para <strong>{selectedDriverForAccess?.name}</strong> acessar o aplicativo.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateDriverAccess} className="space-y-4">
+                      <div>
+                        <Label htmlFor="driver-access-email">Email de acesso</Label>
+                        <Input
+                          id="driver-access-email"
+                          type="email"
+                          placeholder="email@exemplo.com"
+                          value={driverAccessEmail}
+                          onChange={(e) => setDriverAccessEmail(e.target.value)}
+                          required
+                          disabled={isSubmittingDriverAccess}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="driver-access-password">Senha</Label>
+                        <div className="relative">
+                          <Input
+                            id="driver-access-password"
+                            type={showDriverAccessPassword ? "text" : "password"}
+                            placeholder="Mínimo 6 caracteres"
+                            value={driverAccessPassword}
+                            onChange={(e) => setDriverAccessPassword(e.target.value)}
+                            required
+                            minLength={6}
+                            disabled={isSubmittingDriverAccess}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowDriverAccessPassword(!showDriverAccessPassword)}
+                            disabled={isSubmittingDriverAccess}
+                          >
+                            {showDriverAccessPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsCreateDriverAccessDialogOpen(false)}
+                          disabled={isSubmittingDriverAccess}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={isSubmittingDriverAccess}>
+                          {isSubmittingDriverAccess ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Criando...
+                            </>
+                          ) : (
+                            "Criar Acesso"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Dialog: Redefinir Senha */}
+                <Dialog open={isResetDriverPasswordDialogOpen} onOpenChange={setIsResetDriverPasswordDialogOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Redefinir Senha do Motorista</DialogTitle>
+                      <DialogDescription>
+                        Nova senha de acesso ao app para <strong>{selectedDriverForAccess?.name}</strong>.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleResetDriverPassword} className="space-y-4">
+                      <div>
+                        <Label htmlFor="driver-reset-password">Nova Senha</Label>
+                        <div className="relative">
+                          <Input
+                            id="driver-reset-password"
+                            type={showDriverResetPassword ? "text" : "password"}
+                            placeholder="Mínimo 6 caracteres"
+                            value={driverResetPassword}
+                            onChange={(e) => setDriverResetPassword(e.target.value)}
+                            required
+                            minLength={6}
+                            disabled={isSubmittingDriverAccess}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowDriverResetPassword(!showDriverResetPassword)}
+                            disabled={isSubmittingDriverAccess}
+                          >
+                            {showDriverResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="driver-reset-password-confirm">Confirmar Nova Senha</Label>
+                        <Input
+                          id="driver-reset-password-confirm"
+                          type="password"
+                          placeholder="Repita a nova senha"
+                          value={driverResetPasswordConfirm}
+                          onChange={(e) => setDriverResetPasswordConfirm(e.target.value)}
+                          required
+                          minLength={6}
+                          disabled={isSubmittingDriverAccess}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsResetDriverPasswordDialogOpen(false)}
+                          disabled={isSubmittingDriverAccess}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={isSubmittingDriverAccess}>
+                          {isSubmittingDriverAccess ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Redefinindo...
+                            </>
+                          ) : (
+                            "Redefinir Senha"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
+                <Card className="rounded-[2.5rem] border-border/40 shadow-sm overflow-hidden bg-white/40 dark:bg-black/20 backdrop-blur-sm">
+                  <CardHeader className="responsive-card-padding">
+                    <CardTitle className="flex items-center gap-2">
+                      <Smartphone className="h-5 w-5" />
+                      <span className="text-base sm:text-lg">Acesso de Motoristas no App</span>
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      Gerencie quais motoristas podem fazer login no aplicativo mobile
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="responsive-card-padding pt-0">
+                    {drivers.length === 0 ? (
+                      <div className="text-center py-6">
+                        <Smartphone className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Nenhum motorista cadastrado</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {drivers.map((driver) => (
+                          <div
+                            key={driver.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-full bg-secondary">
+                                <User className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm sm:text-base">{driver.name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {driver.hasAppAccess ? (
+                                    <>
+                                      <Badge className="text-[10px] font-black uppercase rounded-full px-2 bg-green-500 text-white dark:bg-green-600">
+                                        Acesso Liberado
+                                      </Badge>
+                                      {driver.email && (
+                                        <span className="text-xs text-muted-foreground font-medium opacity-60">
+                                          {driver.email}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] font-black uppercase rounded-full px-2 text-muted-foreground">
+                                      Sem Acesso
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {driver.hasAppAccess ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openResetDriverPasswordDialog(driver)}
+                                  className="h-8 text-xs gap-1"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Redefinir Senha</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => openCreateDriverAccessDialog(driver)}
+                                  className="h-8 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  <Smartphone className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Liberar App</span>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* Suporte */}

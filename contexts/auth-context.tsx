@@ -53,6 +53,8 @@ interface AuthContextType {
   getCollaborators: () => Promise<User[]>
   updateCollaborator: (collaboratorId: string, name: string, email: string, password?: string, role?: "admin" | "collaborator") => Promise<boolean>
   deleteCollaborator: (collaboratorId: string) => Promise<boolean>
+  createDriverAccess: (driverId: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  resetDriverPassword: (driverId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
   isLoading: boolean
   isAuthenticating: boolean
 }
@@ -470,6 +472,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const createDriverAccess = async (
+    driverId: string,
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!user || user.role !== "admin") {
+        return { success: false, error: "Apenas administradores podem criar acesso de motoristas" }
+      }
+
+      const response = await fetch("/api/driver-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", driverId, email, password, adminId: user.id }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.error === "email-already-exists") {
+          return { success: false, error: "Este email já está em uso no sistema" }
+        }
+        if (data.error === "Motorista já possui acesso ao app") {
+          return { success: false, error: "Motorista já possui acesso ao app" }
+        }
+        return { success: false, error: data.error || "Erro ao criar acesso" }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Erro ao criar acesso de motorista:", error)
+      return { success: false, error: "Erro inesperado ao criar acesso" }
+    }
+  }
+
+  const resetDriverPassword = async (
+    driverId: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!user || user.role !== "admin") {
+        return { success: false, error: "Apenas administradores podem redefinir senhas de motoristas" }
+      }
+
+      const response = await fetch("/api/driver-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset", driverId, password: newPassword }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: data.error || "Erro ao redefinir senha" }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Erro ao redefinir senha do motorista:", error)
+      return { success: false, error: "Erro inesperado ao redefinir senha" }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -484,6 +549,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getCollaborators,
         updateCollaborator,
         deleteCollaborator,
+        createDriverAccess,
+        resetDriverPassword,
         isLoading,
         isAuthenticating,
       }}
