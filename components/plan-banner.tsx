@@ -15,9 +15,9 @@ export function PlanBanner() {
 
   if (!user || user.subscription_status !== "active") return null
 
-  const maxTrucks = user.max_trucks ?? 0
   const usedTrucks = trucks.length
-  const usagePercent = maxTrucks ? Math.min(100, Math.round((usedTrucks / maxTrucks) * 100)) : 0
+  const maxTrucks = Math.max(user.max_trucks || usedTrucks, usedTrucks)
+  const usagePercent = maxTrucks > 0 ? Math.min(100, Math.round((usedTrucks / maxTrucks) * 100)) : 0
   const pricePerTruck = getPricePerTruck(maxTrucks)
 
   return (

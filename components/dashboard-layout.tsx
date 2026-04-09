@@ -23,10 +23,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMinimized, setIsMinimized] = useState(false)
   const { trucks } = useTrucks()
 
-  const maxTrucks = user?.max_trucks || 2
   const truckCount = trucks.length
-  const isFull = truckCount >= maxTrucks
-  const progress = Math.min(100, (truckCount / maxTrucks) * 100)
+  const maxTrucks = Math.max(user?.max_trucks || truckCount, truckCount)
+  const isFull = maxTrucks > 0 && truckCount >= maxTrucks
+  const progress = maxTrucks > 0 ? Math.min(100, (truckCount / maxTrucks) * 100) : 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -233,9 +233,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                   </div>
 
-                  <Link href="/plans">
+                  <Link href="/plans?change=true">
                     <Button variant="default" size="sm" className="w-full text-[10px] font-black uppercase tracking-tighter h-8 bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20 border-none transition-all">
-                      Trocar Plano
+                      Ajustar Plano
                     </Button>
                   </Link>
                 </div>
