@@ -1,27 +1,30 @@
 import Stripe from "stripe"
 
-// Metadados dos planos (usados no frontend e para validação)
-export const PLAN_PRICES = {
-  basic: {
-    unitAmount: 3900, // R$39,00
-    maxTrucks: 2,
-    name: "Plano Básico",
-    description: "Até 2 caminhões",
-  },
-  custom: {
-    unitAmount: 2000, // R$20,00 por caminhão
-    name: "Plano Personalizado",
-  },
-} as const
+// Tabela de preços por faixa de caminhões (Volume Tiered Pricing)
+// O preço por caminhão diminui conforme a frota cresce.
+export const PRICE_TIERS = [
+  { min: 1, max: 5, pricePerTruck: 120 },
+  { min: 6, max: 10, pricePerTruck: 105 },
+  { min: 11, max: 15, pricePerTruck: 90 },
+  { min: 16, max: 18, pricePerTruck: 80 },
+  { min: 19, max: Infinity, pricePerTruck: 75 },
+] as const
 
-// Price IDs persistentes criados no Stripe Dashboard
-export const STRIPE_PRICE_IDS = {
-  basic: process.env.STRIPE_BASIC_PRICE_ID ?? "",
-  custom: process.env.STRIPE_CUSTOM_PRICE_ID ?? "",
+// Calcula o preço unitário por caminhão baseado na quantidade total (volume pricing)
+export function getPricePerTruck(truckCount: number): number {
+  const tier = PRICE_TIERS.find(t => truckCount >= t.min && truckCount <= t.max)
+  return tier?.pricePerTruck ?? 75
 }
 
+// Calcula o total mensal
+export function getMonthlyTotal(truckCount: number): number {
+  return truckCount * getPricePerTruck(truckCount)
+}
+
+// Price ID do plano único com tiered pricing no Stripe
+export const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID ?? ""
+
 // Inicialização lazy — evita throw em build time quando a env var não está disponível.
-// O erro só acontece em runtime, quando a API é realmente chamada.
 let _stripe: Stripe | null = null
 
 export const stripe = new Proxy({} as Stripe, {

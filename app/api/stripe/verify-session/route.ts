@@ -52,7 +52,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Sessão sem dados do usuário" }, { status: 400 })
     }
 
-    const planType = session.metadata?.planType ?? null
     const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
 
     // Ativa a assinatura no Firestore
@@ -63,7 +62,7 @@ export async function GET(request: NextRequest) {
       .set(
         {
           subscription_status: "active",
-          plan_type: planType,
+          plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
@@ -71,11 +70,11 @@ export async function GET(request: NextRequest) {
         { merge: true },
       )
 
-    console.log(`[verify-session] Assinatura ATIVADA — userId=${userId}, plano=${planType}`)
+    console.log(`[verify-session] Assinatura ATIVADA — userId=${userId}, max_trucks=${maxTrucks}`)
 
     return NextResponse.json({
       activated: true,
-      plan_type: planType,
+      plan_type: "frotas",
       max_trucks: maxTrucks > 0 ? maxTrucks : null,
     })
   } catch (error: unknown) {

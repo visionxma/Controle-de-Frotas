@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { stripe, STRIPE_PRICE_IDS, PLAN_PRICES } from "@/lib/stripe"
+import { stripe, STRIPE_PRICE_ID } from "@/lib/stripe"
 import { getAdminDb } from "@/lib/firebase-admin"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, planType, truckCount } = body
+    const { userId, truckCount } = body
 
-    if (!userId || !planType) {
+    if (!userId || !truckCount || truckCount < 1) {
       return NextResponse.json({ error: "Parâmetros obrigatórios ausentes" }, { status: 400 })
-    }
-
-    if (planType !== "basic" && planType !== "custom") {
-      return NextResponse.json({ error: "Tipo de plano inválido" }, { status: 400 })
-    }
-
-    if (planType === "custom" && (!truckCount || truckCount < 1)) {
-      return NextResponse.json({ error: "Quantidade de caminhões inválida" }, { status: 400 })
     }
 
     const db = getAdminDb()
@@ -28,7 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     const subscriptionId = userData.stripe_subscription_id
-    const maxTrucks = planType === "basic" ? PLAN_PRICES.basic.maxTrucks : truckCount
 
     // Busca a assinatura atual no Stripe
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
@@ -38,31 +29,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Item da assinatura não encontrado" }, { status: 404 })
     }
 
-    const newPriceId = planType === "basic" ? STRIPE_PRICE_IDS.basic : STRIPE_PRICE_IDS.custom
-    const newQuantity = planType === "basic" ? 1 : truckCount
-
-    // Atualiza a assinatura no Stripe
+    // Atualiza a assinatura no Stripe — muda a quantity
     await stripe.subscriptions.update(subscriptionId, {
       items: [
         {
           id: subscriptionItem.id,
-          price: newPriceId,
-          quantity: newQuantity,
+          price: STRIPE_PRICE_ID,
+          quantity: truckCount,
         },
       ],
       metadata: {
         userId,
-        planType,
-        maxTrucks: String(maxTrucks),
+        maxTrucks: String(truckCount),
       },
       proration_behavior: "create_prorations",
     })
 
-    // Atualiza o Firestore diretamente (sem esperar pelo webhook)
+    // Atualiza o Firestore diretamente
     await db.collection("users").doc(userId).set(
       {
-        plan_type: planType,
-        max_trucks: maxTrucks,
+        plan_type: "frotas",
+        max_trucks: truckCount,
         subscription_status: "active",
       },
       { merge: true },

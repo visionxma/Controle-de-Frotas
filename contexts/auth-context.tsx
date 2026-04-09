@@ -33,7 +33,7 @@ interface User {
     canDelete: boolean
   }
   // Assinatura Stripe
-  plan_type?: "basic" | "custom" | null
+  plan_type?: "basic" | "custom" | "frotas" | null
   max_trucks?: number | null
   subscription_status?: "active" | "inactive" | "past_due" | "canceled" | null
   stripe_customer_id?: string | null

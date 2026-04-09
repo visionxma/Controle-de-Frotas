@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
       if (subscriptions.data.length === 0) continue
 
       const subscription = subscriptions.data[0]
-      const planType = subscription.metadata?.planType ?? null
       const maxTrucks = parseInt(subscription.metadata?.maxTrucks ?? "0", 10)
 
       // 3. Ativa no Firestore
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
         .set(
           {
             subscription_status: "active",
-            plan_type: planType,
+            plan_type: "frotas",
             max_trucks: maxTrucks > 0 ? maxTrucks : null,
             stripe_customer_id: customer.id,
             stripe_subscription_id: subscription.id,
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         activated: true,
-        plan_type: planType,
+        plan_type: "frotas",
         max_trucks: maxTrucks > 0 ? maxTrucks : null,
       })
     }

@@ -208,7 +208,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em]">Plano Atual</span>
-                      <span className="text-xs font-black text-white italic tracking-tight underline decoration-primary decoration-2 underline-offset-2">Plano Básico</span>
+                      <span className="text-xs font-black text-white italic tracking-tight underline decoration-primary decoration-2 underline-offset-2">Plano Frotas</span>
                     </div>
                     <Badge className="bg-green-500/10 text-green-500 border-none text-[8px] h-4 font-black uppercase">Ativo</Badge>
                   </div>

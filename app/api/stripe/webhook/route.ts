@@ -93,18 +93,17 @@ export async function POST(request: NextRequest) {
           break
         }
 
-        const planType = session.metadata?.planType ?? null
         const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
 
         await updateUserSubscription(userId, {
           subscription_status: "active",
-          plan_type: planType,
+          plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
         })
 
-        console.log(`[webhook] Assinatura ATIVADA — userId=${userId}, plano=${planType}, max_trucks=${maxTrucks}`)
+        console.log(`[webhook] Assinatura ATIVADA — userId=${userId}, max_trucks=${maxTrucks}`)
         break
       }
 
@@ -123,18 +122,17 @@ export async function POST(request: NextRequest) {
           break
         }
 
-        const planType = session.metadata?.planType ?? null
         const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
 
         await updateUserSubscription(userId, {
           subscription_status: "active",
-          plan_type: planType,
+          plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
         })
 
-        console.log(`[webhook] Boleto/Pix CONFIRMADO — userId=${userId}, plano=${planType}`)
+        console.log(`[webhook] Boleto/Pix CONFIRMADO — userId=${userId}`)
         break
       }
 
@@ -156,17 +154,16 @@ export async function POST(request: NextRequest) {
           break
         }
 
-        const planType = subscription.metadata?.planType ?? null
         const maxTrucks = parseInt(subscription.metadata?.maxTrucks ?? "0", 10)
 
         await updateUserSubscription(userId, {
           subscription_status: "active",
-          plan_type: planType,
+          plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_subscription_id: subscription.id,
         })
 
-        console.log(`[webhook] invoice.paid processado — userId=${userId}, plano=${planType}`)
+        console.log(`[webhook] invoice.paid processado — userId=${userId}, max_trucks=${maxTrucks}`)
         break
       }
 
@@ -179,12 +176,11 @@ export async function POST(request: NextRequest) {
         const userId = getUserId(subscription.metadata)
         if (!userId) break
 
-        const planType = subscription.metadata?.planType ?? null
         const maxTrucks = parseInt(subscription.metadata?.maxTrucks ?? "0", 10)
 
         await updateUserSubscription(userId, {
           subscription_status: subscription.status,
-          plan_type: planType,
+          plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_subscription_id: subscription.id,
         })

@@ -55,7 +55,7 @@ export default function TrucksPage() {
         toast({
           title: isAtTruckLimit ? "Limite atingido" : "Erro",
           description: isAtTruckLimit
-            ? "Você atingiu o limite de caminhões do seu plano. Para adicionar mais, contrate o Plano Personalizado com maior quantidade."
+            ? "Você atingiu o limite de caminhões do seu plano. Ajuste seu plano para adicionar mais caminhões."
             : "Ocorreu um erro ao salvar o caminhão. Tente novamente.",
           variant: "destructive",
         })

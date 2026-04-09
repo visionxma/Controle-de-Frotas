@@ -6,13 +6,11 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Truck, CheckCircle2, Loader2, LogOut, Minus, Plus, ArrowLeft, Star } from "lucide-react"
+import { Truck, CheckCircle2, Loader2, LogOut, Minus, Plus, ArrowLeft, Star, TrendingDown } from "lucide-react"
 import { toast } from "sonner"
+import { PRICE_TIERS, getPricePerTruck, getMonthlyTotal } from "@/lib/stripe"
 
-const CUSTOM_PRICE_PER_TRUCK = 20
-const BASIC_PRICE = 39
-const BASIC_MAX_TRUCKS = 2
-const CUSTOM_MIN_TRUCKS = 3
+const MIN_TRUCKS = 1
 
 function PlansPageContent() {
   const { user, isLoading, logout } = useAuth()
@@ -20,20 +18,20 @@ function PlansPageContent() {
   const searchParams = useSearchParams()
   const isChanging = searchParams.get("change") === "true"
 
-  const [customTruckCount, setCustomTruckCount] = useState(CUSTOM_MIN_TRUCKS)
+  const [truckCount, setTruckCount] = useState(1)
   const [isRedirecting, setIsRedirecting] = useState(false)
-  const [loadingPlan, setLoadingPlan] = useState<"basic" | "custom" | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "not_found" | "error">("idle")
   const [syncError, setSyncError] = useState("")
 
-  // Inicializa o contador de caminhões com o valor atual do usuário
+  // Inicializa o contador com o valor atual do usuário
   useEffect(() => {
-    if (user?.plan_type === "custom" && user.max_trucks) {
-      setCustomTruckCount(Math.max(CUSTOM_MIN_TRUCKS, user.max_trucks))
+    if (user?.max_trucks) {
+      setTruckCount(Math.max(MIN_TRUCKS, user.max_trucks))
     }
-  }, [user?.plan_type, user?.max_trucks])
+  }, [user?.max_trucks])
 
-  // Se já tem assinatura ativa e NÃO está trocando de plano, vai para o dashboard
+  // Se já tem assinatura ativa e NÃO está trocando, vai para o dashboard
   useEffect(() => {
     if (!isLoading && user?.subscription_status === "active" && !isChanging) {
       router.replace("/dashboard")
@@ -47,7 +45,7 @@ function PlansPageContent() {
     }
   }, [user, isLoading, router])
 
-  // Fallback: verifica assinatura no Stripe (apenas quando não está em modo troca)
+  // Fallback: verifica assinatura no Stripe
   useEffect(() => {
     if (isLoading || !user || user.subscription_status === "active" || isChanging) return
 
@@ -94,23 +92,22 @@ function PlansPageContent() {
       })
   }
 
-  const customTotal = customTruckCount * CUSTOM_PRICE_PER_TRUCK
+  const pricePerTruck = getPricePerTruck(truckCount)
+  const monthlyTotal = getMonthlyTotal(truckCount)
+  const isSameAsCurrentPlan = isChanging && user?.max_trucks === truckCount
 
-  const handleSelectPlan = async (planType: "basic" | "custom") => {
+  const handleSubscribe = async () => {
     if (!user) return
 
-    setLoadingPlan(planType)
+    setIsProcessing(true)
 
     try {
       // Se está trocando de plano (já tem assinatura ativa), usa update-subscription
       if (isChanging && user.subscription_status === "active") {
-        const body: Record<string, unknown> = { userId: user.id, planType }
-        if (planType === "custom") body.truckCount = customTruckCount
-
         const response = await fetch("/api/stripe/update-subscription", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ userId: user.id, truckCount }),
         })
 
         const data = await response.json()
@@ -124,21 +121,15 @@ function PlansPageContent() {
         return
       }
 
-      // Novo assinante: cria checkout session no Stripe
-      const body: Record<string, unknown> = {
-        userId: user.id,
-        userEmail: user.email,
-        planType,
-      }
-
-      if (planType === "custom") {
-        body.truckCount = customTruckCount
-      }
-
+      // Novo assinante: cria checkout session
       const response = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          userId: user.id,
+          userEmail: user.email,
+          truckCount,
+        }),
       })
 
       const data = await response.json()
@@ -151,19 +142,14 @@ function PlansPageContent() {
       window.location.href = data.url
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Tente novamente."
-      toast.error(isChanging ? `Não foi possível atualizar o plano. ${msg}` : "Não foi possível redirecionar para o pagamento. Tente novamente.")
-      setLoadingPlan(null)
+      toast.error(`Não foi possível processar. ${msg}`)
+      setIsProcessing(false)
     }
   }
 
   const handleLogout = () => {
     logout()
     router.push("/login")
-  }
-
-  const isCurrentPlan = (planType: "basic" | "custom") => {
-    if (!isChanging) return false
-    return user?.plan_type === planType
   }
 
   if (isLoading) {
@@ -193,10 +179,10 @@ function PlansPageContent() {
               <img src="/frox.svg" alt="FroX" className="h-7 w-auto" />
             </div>
             {isChanging && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => router.push("/dashboard")} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/dashboard")}
                 className="rounded-2xl hover:bg-primary/5 hover:text-primary font-bold transition-all px-4"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -222,8 +208,8 @@ function PlansPageContent() {
       </div>
 
       {/* Conteúdo */}
-      <div className="max-w-5xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-        {/* Banner de sincronização (apenas quando não está em modo troca) */}
+      <div className="max-w-3xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        {/* Banners de sincronização */}
         {!isChanging && syncStatus === "syncing" && (
           <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin shrink-0" />
@@ -243,203 +229,164 @@ function PlansPageContent() {
 
         {!isChanging && syncStatus === "not_found" && (
           <div className="mb-8 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-4">
-            <span>Nenhuma assinatura ativa encontrada. Escolha um plano abaixo para continuar.</span>
+            <span>Nenhuma assinatura ativa encontrada. Configure seu plano abaixo para continuar.</span>
             <Button variant="ghost" size="sm" onClick={handleRetrySync} className="shrink-0">
               Verificar novamente
             </Button>
           </div>
         )}
 
-        {/* Banner de troca de plano */}
-        {isChanging && user?.plan_type && (
+        {/* Banner de troca */}
+        {isChanging && user?.max_trucks && (
           <div className="mb-8 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-center gap-3">
             <Star className="h-4 w-4 shrink-0 text-primary" />
             <span>
-              Você está no <strong>{user.plan_type === "basic" ? "Plano Básico" : "Plano Personalizado"}</strong>.
-              Escolha abaixo o novo plano desejado.
+              Você tem atualmente <strong>{user.max_trucks} caminhões</strong> no seu plano.
+              Ajuste a quantidade abaixo.
             </span>
           </div>
         )}
 
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-3">
-            {isChanging ? "Trocar de plano" : "Escolha seu plano"}
+            {isChanging ? "Ajustar plano" : "Plano Frotas"}
           </h1>
           <p className="text-muted-foreground text-lg">
             {isChanging
-              ? "Selecione o novo plano para a sua frota. A mudança é imediata."
-              : "Selecione o plano ideal para a sua frota. Cancele a qualquer momento."}
+              ? "Ajuste a quantidade de caminhões. A mudança é imediata."
+              : "Pague por caminhão. Quanto maior a frota, menor o preço por unidade."}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Plano Básico */}
-          <Card className={`relative border-2 transition-colors ${isCurrentPlan("basic") ? "border-primary bg-primary/5" : "hover:border-primary"}`}>
-            {isCurrentPlan("basic") && (
-              <div className="absolute -top-3 left-6">
-                <Badge className="px-3 py-1 bg-primary text-primary-foreground">Plano atual</Badge>
+        {/* Card único do plano */}
+        <Card className="relative border-2 border-primary shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl">Plano Frotas</CardTitle>
+              <Badge variant="outline" className="flex items-center gap-1">
+                <TrendingDown className="h-3 w-3" />
+                Desconto por volume
+              </Badge>
+            </div>
+            <CardDescription>Tudo incluso. O preço por caminhão diminui conforme sua frota cresce.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            {/* Seletor de caminhões */}
+            <div className="bg-muted/50 rounded-lg p-6 space-y-4">
+              <p className="text-sm font-medium text-center">Quantos caminhões você possui?</p>
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setTruckCount((c) => Math.max(MIN_TRUCKS, c - 1))}
+                  disabled={truckCount <= MIN_TRUCKS}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="text-4xl font-bold w-20 text-center">{truckCount}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setTruckCount((c) => c + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Plano Básico</CardTitle>
-                <Badge variant="secondary">Até 2 caminhões</Badge>
-              </div>
-              <CardDescription>Ideal para pequenas frotas</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <span className="text-4xl font-bold">R${BASIC_PRICE}</span>
-                <span className="text-muted-foreground">/mês</span>
-              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                {truckCount} {truckCount === 1 ? "caminhão" : "caminhões"} × R${pricePerTruck},00 por caminhão
+              </p>
+            </div>
 
-              <ul className="space-y-3">
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Até {BASIC_MAX_TRUCKS} caminhões cadastrados
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Controle de viagens e motoristas
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Financeiro e relatórios em PDF
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Envio de fotos das viagens
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Acesso para equipe (colaboradores)
-                </li>
-              </ul>
-
-              <Button
-                className="w-full"
-                variant={isCurrentPlan("basic") ? "outline" : "default"}
-                onClick={() => handleSelectPlan("basic")}
-                disabled={loadingPlan !== null || isCurrentPlan("basic")}
-              >
-                {loadingPlan === "basic" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : isCurrentPlan("basic") ? (
-                  "Plano atual"
-                ) : isChanging ? (
-                  "Trocar para Plano Básico"
-                ) : (
-                  "Assinar Plano Básico"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Plano Personalizado */}
-          <Card className={`relative border-2 transition-colors ${isCurrentPlan("custom") ? "border-primary bg-primary/5" : "border-primary shadow-lg"}`}>
-            {isCurrentPlan("custom") ? (
-              <div className="absolute -top-3 left-6">
-                <Badge className="px-3 py-1 bg-primary text-primary-foreground">Plano atual</Badge>
-              </div>
-            ) : (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="px-3 py-1">Mais popular</Badge>
-              </div>
-            )}
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Plano Personalizado</CardTitle>
-                <Badge variant="outline">R$20/caminhão</Badge>
-              </div>
-              <CardDescription>Escala conforme sua frota cresce</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Seletor de caminhões */}
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <p className="text-sm font-medium text-center">Quantos caminhões você possui?</p>
-                <div className="flex items-center justify-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCustomTruckCount((c) => Math.max(CUSTOM_MIN_TRUCKS, c - 1))}
-                    disabled={customTruckCount <= CUSTOM_MIN_TRUCKS}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="text-3xl font-bold w-16 text-center">{customTruckCount}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCustomTruckCount((c) => c + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-muted-foreground">
-                  {customTruckCount} caminhão(ões) × R${CUSTOM_PRICE_PER_TRUCK},00
+            {/* Preço total */}
+            <div className="text-center">
+              <span className="text-5xl font-bold">R${monthlyTotal}</span>
+              <span className="text-muted-foreground text-lg">/mês</span>
+              {pricePerTruck < 120 && (
+                <p className="text-sm text-green-600 font-medium mt-1">
+                  Economia de R${(120 - pricePerTruck) * truckCount}/mês vs. preço cheio
                 </p>
-              </div>
+              )}
+            </div>
 
-              <div className="text-center">
-                <span className="text-4xl font-bold">R${customTotal}</span>
-                <span className="text-muted-foreground">/mês</span>
-              </div>
+            {/* Tabela de faixas */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/50">
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Faixa</th>
+                    <th className="px-4 py-2 text-right font-medium text-muted-foreground">Preço/caminhão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRICE_TIERS.map((tier, i) => {
+                    const isActive = truckCount >= tier.min && truckCount <= tier.max
+                    return (
+                      <tr key={i} className={isActive ? "bg-primary/10 font-bold" : ""}>
+                        <td className="px-4 py-2 border-t">
+                          {tier.max === Infinity ? `${tier.min}+ caminhões` : `${tier.min} a ${tier.max} caminhões`}
+                          {isActive && <Badge className="ml-2 text-[8px] py-0 px-1.5">Sua faixa</Badge>}
+                        </td>
+                        <td className="px-4 py-2 border-t text-right">R${tier.pricePerTruck},00</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-              <ul className="space-y-3">
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  <strong>{customTruckCount} caminhões</strong>&nbsp;cadastrados
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Controle de viagens e motoristas
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Financeiro e relatórios em PDF
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Envio de fotos das viagens
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Acesso para equipe (colaboradores)
-                </li>
-              </ul>
+            {/* Features */}
+            <ul className="space-y-3">
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                Cadastro e controle de caminhões
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                Controle de viagens e motoristas
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                Financeiro e relatórios em PDF
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                Envio de fotos das viagens
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                Acesso para equipe (colaboradores)
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                App mobile para motoristas
+              </li>
+            </ul>
 
-              <Button
-                className="w-full"
-                variant={isCurrentPlan("custom") && customTruckCount === user?.max_trucks ? "outline" : "default"}
-                onClick={() => handleSelectPlan("custom")}
-                disabled={
-                  loadingPlan !== null ||
-                  (isCurrentPlan("custom") && customTruckCount === user?.max_trucks)
-                }
-              >
-                {loadingPlan === "custom" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : isCurrentPlan("custom") && customTruckCount === user?.max_trucks ? (
-                  "Plano atual"
-                ) : isChanging ? (
-                  `Trocar para ${customTruckCount} caminhões — R$${customTotal}/mês`
-                ) : (
-                  `Assinar por R$${customTotal}/mês`
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Botão */}
+            <Button
+              className="w-full h-12 text-base"
+              onClick={handleSubscribe}
+              disabled={isProcessing || isSameAsCurrentPlan}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : isSameAsCurrentPlan ? (
+                "Plano atual"
+              ) : isChanging ? (
+                `Atualizar para ${truckCount} caminhões — R$${monthlyTotal}/mês`
+              ) : (
+                `Assinar por R$${monthlyTotal}/mês`
+              )}
+            </Button>
+          </CardContent>
+        </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
           {isChanging
-            ? "A mudança de plano é aplicada imediatamente. O valor é ajustado proporcionalmente."
+            ? "A mudança é aplicada imediatamente. O valor é ajustado proporcionalmente."
             : "Pagamento seguro processado pelo Stripe. Cancele a qualquer momento pelo suporte."}
         </p>
       </div>
