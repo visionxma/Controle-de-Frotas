@@ -9,24 +9,28 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { 
-  Truck, 
-  MapPin, 
-  Calendar, 
-  Activity, 
-  Fuel, 
+import {
+  Truck,
+  MapPin,
+  Calendar,
+  Activity,
+  Fuel,
   CheckCircle,
   Clock,
   Navigation,
   ArrowLeft,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown
 } from "lucide-react"
 import type { Truck as TruckType } from "@/hooks/use-trucks"
 import type { Trip } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
+import { useTransactions } from "@/hooks/use-transactions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { TripDetails } from "@/components/trip-details"
 
 interface TruckDetailsModalProps {
@@ -37,13 +41,22 @@ interface TruckDetailsModalProps {
 
 export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalProps) {
   const { trips } = useTrips()
-  
+  const { transactions } = useTransactions()
+
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
 
   if (!truck) return null
 
   // Filter trips for this truck
   const truckTrips = trips.filter(trip => trip.truckId === truck.id)
+
+  // Filter transactions for this truck
+  const truckTransactions = transactions.filter(t => t.truckId === truck.id)
+  const truckExpenses = truckTransactions.filter(t => t.type === "despesa")
+  const truckIncomes = truckTransactions.filter(t => t.type === "receita")
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
   
   // Calculate some stats
   const totalKm = truckTrips.reduce((acc, trip) => {
@@ -154,20 +167,30 @@ export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalP
                     Diário de Operações
                   </h3>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="rounded-full font-bold uppercase px-5 py-1.5 bg-muted/20 text-[10px] border-border/40">
-                    {truckTrips.length} registros encontrados
-                  </Badge>
-                </div>
               </div>
 
-              {truckTrips.length === 0 ? (
-                <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed border-border/20">
-                  <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Nenhum histórico disponível</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                  {truckTrips.map((trip) => (
+              <Tabs defaultValue="trips" className="w-full">
+                <TabsList className="grid w-full max-w-md grid-cols-3 h-11">
+                  <TabsTrigger value="trips" className="font-bold uppercase text-[10px] tracking-widest">
+                    Viagens ({truckTrips.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="expenses" className="font-bold uppercase text-[10px] tracking-widest">
+                    Despesas ({truckExpenses.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="incomes" className="font-bold uppercase text-[10px] tracking-widest">
+                    Receitas ({truckIncomes.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Viagens */}
+                <TabsContent value="trips" className="mt-6">
+                  {truckTrips.length === 0 ? (
+                    <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed border-border/20">
+                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Nenhuma viagem registrada</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {truckTrips.map((trip) => (
                     <Card 
                       key={trip.id} 
                       className="border-border/40 hover:border-primary/20 transition-all overflow-hidden bg-white shadow-sm dark:bg-black/40 group flex cursor-pointer"
@@ -227,9 +250,113 @@ export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalP
                     </Card>
                   ))}
                 </div>
-              )}
+                  )}
+                </TabsContent>
+
+                {/* Despesas */}
+                <TabsContent value="expenses" className="mt-6">
+                  {truckExpenses.length === 0 ? (
+                    <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed border-border/20">
+                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Nenhuma despesa registrada</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {truckExpenses.map((tx) => (
+                        <Card
+                          key={tx.id}
+                          className="border-border/40 hover:border-red-500/30 transition-all overflow-hidden bg-white shadow-sm dark:bg-black/40 flex"
+                        >
+                          <div className="w-1 flex-shrink-0 bg-red-500" />
+                          <CardContent className="py-4 px-5 w-full">
+                            <div className="flex flex-col h-full gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <TrendingDown className="h-4 w-4 text-red-500" />
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                                    Despesa
+                                  </span>
+                                </div>
+                                <Badge variant="outline" className="text-[8px] font-bold uppercase tracking-widest border-border/40">
+                                  {tx.category}
+                                </Badge>
+                              </div>
+
+                              <div className="flex flex-col">
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Descrição</span>
+                                <span className="text-base font-black uppercase tracking-tighter leading-tight line-clamp-2">{tx.description}</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/10">
+                                <div className="space-y-0.5">
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">Data</span>
+                                  <span className="text-xs font-bold text-foreground/80">{formatDate(tx.date)}</span>
+                                </div>
+                                <div className="text-right space-y-0.5">
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">Valor</span>
+                                  <span className="text-xs font-black text-red-500">- {formatCurrency(tx.amount)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Receitas */}
+                <TabsContent value="incomes" className="mt-6">
+                  {truckIncomes.length === 0 ? (
+                    <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed border-border/20">
+                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Nenhuma receita registrada</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {truckIncomes.map((tx) => (
+                        <Card
+                          key={tx.id}
+                          className="border-border/40 hover:border-green-500/30 transition-all overflow-hidden bg-white shadow-sm dark:bg-black/40 flex"
+                        >
+                          <div className="w-1 flex-shrink-0 bg-green-500" />
+                          <CardContent className="py-4 px-5 w-full">
+                            <div className="flex flex-col h-full gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <TrendingUp className="h-4 w-4 text-green-500" />
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                                    Receita
+                                  </span>
+                                </div>
+                                <Badge variant="outline" className="text-[8px] font-bold uppercase tracking-widest border-border/40">
+                                  {tx.category}
+                                </Badge>
+                              </div>
+
+                              <div className="flex flex-col">
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Descrição</span>
+                                <span className="text-base font-black uppercase tracking-tighter leading-tight line-clamp-2">{tx.description}</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/10">
+                                <div className="space-y-0.5">
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">Data</span>
+                                  <span className="text-xs font-bold text-foreground/80">{formatDate(tx.date)}</span>
+                                </div>
+                                <div className="text-right space-y-0.5">
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">Valor</span>
+                                  <span className="text-xs font-black text-green-600">+ {formatCurrency(tx.amount)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
-            
+
             <div className="pb-10"></div>
           </div>
         </div>

@@ -127,14 +127,12 @@ export function useDrivers() {
     if (!user) return false
 
     try {
-      const driversQuery = query(
-        collection(db, "drivers"),
-        where("userId", "==", user.id),
-        where("cpf", "==", driverData.cpf),
+      // Verifica CPF duplicado usando o cache local (evita query composta que exige índice)
+      const cpfExists = (cachedDrivers || []).some(
+        (d) => d.cpf === driverData.cpf
       )
-      const existingDrivers = await getDocs(driversQuery)
 
-      if (!existingDrivers.empty) {
+      if (cpfExists) {
         return false // CPF já cadastrado
       }
 
