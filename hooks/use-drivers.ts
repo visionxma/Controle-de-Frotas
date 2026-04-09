@@ -145,10 +145,17 @@ export function useDrivers() {
         ...(user.role === "collaborator" && user.adminId && { adminId: user.adminId }),
       }
 
-      await addDoc(collection(db, "drivers"), dataToSave)
+      // Remove campos undefined antes de salvar (Firestore rejeita undefined)
+      const cleanData = Object.fromEntries(
+        Object.entries(dataToSave).filter(([_, v]) => v !== undefined)
+      )
+
+      console.log("[addDriver] Salvando motorista:", { cpf: driverData.cpf, userId: user.id, keys: Object.keys(cleanData) })
+      await addDoc(collection(db, "drivers"), cleanData)
+      console.log("[addDriver] Motorista salvo com sucesso")
       return true
-    } catch (error) {
-      console.error("Erro ao adicionar motorista:", error)
+    } catch (error: any) {
+      console.error("[addDriver] ERRO:", error.code, error.message, error)
       return false
     }
   }
