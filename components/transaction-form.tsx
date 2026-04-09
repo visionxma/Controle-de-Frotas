@@ -75,12 +75,32 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
 
   const handleChange = (field: string, value: string | number) => {
     const finalValue = value === "none" ? undefined : value
+
+    // Auto-preencher motorista e caminhão ao selecionar uma viagem
+    if (field === "tripId" && finalValue) {
+      const selectedTrip = trips.find((t) => t.id === finalValue)
+      if (selectedTrip) {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: finalValue,
+          driverId: selectedTrip.driverId || prev.driverId,
+          truckId: selectedTrip.truckId || prev.truckId,
+        }))
+        return
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [field]: finalValue }))
   }
 
   const categories = formData.type === "receita" ? revenueCategories : expenseCategories
 
-  const completedTrips = trips.filter((trip) => trip.status === "completed")
+  // Todas as viagens disponíveis, ordenadas: em andamento primeiro
+  const availableTrips = [...trips].sort((a, b) => {
+    if (a.status === "in_progress" && b.status !== "in_progress") return -1
+    if (a.status !== "in_progress" && b.status === "in_progress") return 1
+    return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+  })
   const completedRentals = rentals.filter((rental) => rental.status === "completed")
 
   // Motorista selecionado com comissão
@@ -207,9 +227,15 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
-                  {completedTrips.map((trip) => (
+                  {availableTrips.map((trip) => (
                     <SelectItem key={trip.id} value={trip.id}>
-                      {trip.startLocation} → {trip.endLocation} ({new Date(trip.startDate).toLocaleDateString("pt-BR")})
+                      <span className="flex items-center gap-2">
+                        <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${trip.status === "in_progress" ? "bg-amber-500" : "bg-green-500"}`} />
+                        {trip.startLocation} → {trip.endLocation || "Em rota"} ({new Date(trip.startDate).toLocaleDateString("pt-BR")})
+                        {trip.status === "in_progress" && (
+                          <span className="text-[10px] font-bold text-amber-500 uppercase">Em andamento</span>
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -26,6 +26,12 @@ export interface TripPhoto {
   type?: "cargo" | "receipt" | "other"
 }
 
+export interface TripProgressEntry {
+  km: number
+  city: string
+  timestamp: string
+}
+
 export interface Trip {
   id: string
   truckId: string
@@ -49,6 +55,11 @@ export interface Trip {
   createdByRole?: "admin" | "collaborator"
   cargoDescription?: string
   photos?: TripPhoto[]
+  // Progress tracking (synced with mobile app)
+  progressEntries?: TripProgressEntry[]
+  currentKm?: number
+  currentCity?: string
+  observations?: string
 }
 
 export function useTrips() {
