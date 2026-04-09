@@ -16,7 +16,7 @@ import {
 } from "firebase/auth"
 import { initializeApp, deleteApp } from "firebase/app"
 import { auth, app as firebaseApp } from "@/lib/firebase"
-import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot } from "firebase/firestore"
+import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface User {
@@ -90,8 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           (userDoc) => {
             if (userDoc.exists()) {
               const userData = userDoc.data()
-              const role = userData.role || "admin"
+              const role = userData.role
 
+              // Bloqueia qualquer role que não seja exatamente "admin" (incluindo undefined/null)
               if (role !== "admin") {
                 signOut(auth)
                 setUser(null)
@@ -133,39 +134,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   .catch(() => null)
               }
             } else {
-              setUser({
-                id: firebaseUser.uid,
-                name: firebaseUser.displayName || "",
-                email: firebaseUser.email || "",
-                company: "",
-                role: "admin",
-                permissions: {
-                  canCreate: true,
-                  canRead: true,
-                  canUpdate: true,
-                  canDelete: true,
-                },
-                subscription_status: null,
-              })
+              // Sem documento na coleção users — não é um admin válido
+              signOut(auth)
+              setUser(null)
             }
             setIsLoading(false)
           },
           (error) => {
             console.error("Erro ao observar dados do usuário:", error)
-            setUser({
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || "",
-              email: firebaseUser.email || "",
-              company: "",
-              role: "admin",
-              permissions: {
-                canCreate: true,
-                canRead: true,
-                canUpdate: true,
-                canDelete: true,
-              },
-              subscription_status: null,
-            })
+            // Em caso de erro, não conceder acesso
+            signOut(auth)
+            setUser(null)
             setIsLoading(false)
           },
         )
@@ -203,10 +182,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userData = userDoc.data()
-        const role = userData.role || "admin"
+        const role = userData.role
 
-        // Block login if user is not an admin
+        // Bloqueia login se role não for exatamente "admin" (incluindo undefined/null)
         if (role !== "admin") {
+          await signOut(auth)
+          return false
+        }
+
+        // Verifica se o UID pertence a um motorista (doc espúrio criado pelo bug do nativo)
+        const driverSnap = await getDocs(
+          query(collection(db, "drivers"), where("uid", "==", firebaseUser.uid), limit(1))
+        )
+        if (!driverSnap.empty) {
           await signOut(auth)
           return false
         }
