@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { validateCPF, formatCPF, formatPhone, validateEmail, fetchCEP, formatCEP } from "@/lib/utils-validation"
-import { CheckCircle2, Search, Loader2, Percent } from "lucide-react"
+import { CheckCircle2, Search, Loader2, Percent, Shield } from "lucide-react"
 import type { Driver } from "@/hooks/use-drivers"
+import { DEFAULT_DRIVER_PERMISSIONS, type DriverPermissions } from "@/hooks/use-drivers"
 import { useToast } from "@/hooks/use-toast"
 
 interface DriverFormProps {
@@ -37,6 +39,10 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
     commissionPercentage: driver?.commissionPercentage ?? 0,
     cep: "",
   })
+
+  const [permissions, setPermissions] = useState<DriverPermissions>(
+    driver?.permissions || { ...DEFAULT_DRIVER_PERMISSIONS }
+  )
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [validFields, setValidFields] = useState<Record<string, boolean>>({})
@@ -125,7 +131,8 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
     const { cep, ...submitData } = formData
     onSubmit({
       ...submitData,
-      commissionPercentage: submitData.commissionPercentage > 0 ? submitData.commissionPercentage : undefined,
+      commissionPercentage: submitData.commissionPercentage > 0 ? submitData.commissionPercentage : 0,
+      permissions,
     })
   }
 
@@ -377,6 +384,47 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
                   validFields.address ? "border-emerald-500/30 bg-emerald-500/5" : ""
                 )}
               />
+            </div>
+          </div>
+
+          {/* Permissões do App */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center gap-2 border-b border-border/30 pb-3">
+              <Shield className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-sm font-black uppercase italic tracking-tight">Permissões do App</h3>
+                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">
+                  Controle o que este motorista pode fazer no aplicativo
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {([
+                { key: "can_create_trips", label: "Iniciar viagens" },
+                { key: "can_cancel_trips", label: "Cancelar viagens em andamento" },
+                { key: "can_complete_trips", label: "Completar viagens" },
+                { key: "can_add_expenses", label: "Adicionar despesas" },
+                { key: "can_upload_photos", label: "Enviar fotos" },
+                { key: "can_edit_notes", label: "Editar notas da viagem" },
+                { key: "can_view_finances", label: "Ver aba financeira" },
+                { key: "can_view_settings", label: "Ver configurações" },
+              ] as const).map(({ key, label }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between rounded-sm border border-border/30 px-4 py-3 transition-colors hover:bg-muted/20"
+                >
+                  <Label htmlFor={key} className="text-sm font-medium cursor-pointer">
+                    {label}
+                  </Label>
+                  <Switch
+                    id={key}
+                    checked={permissions[key]}
+                    onCheckedChange={(checked) =>
+                      setPermissions((prev) => ({ ...prev, [key]: checked }))
+                    }
+                  />
+                </div>
+              ))}
             </div>
           </div>
 

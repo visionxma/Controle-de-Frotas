@@ -26,6 +26,28 @@ function notify() {
   subscribers.forEach((callback) => callback());
 }
 
+export interface DriverPermissions {
+  can_create_trips: boolean
+  can_cancel_trips: boolean
+  can_complete_trips: boolean
+  can_add_expenses: boolean
+  can_upload_photos: boolean
+  can_edit_notes: boolean
+  can_view_finances: boolean
+  can_view_settings: boolean
+}
+
+export const DEFAULT_DRIVER_PERMISSIONS: DriverPermissions = {
+  can_create_trips: true,
+  can_cancel_trips: true,
+  can_complete_trips: true,
+  can_add_expenses: true,
+  can_upload_photos: true,
+  can_edit_notes: true,
+  can_view_finances: true,
+  can_view_settings: true,
+}
+
 export interface Driver {
   id: string
   name: string
@@ -39,6 +61,7 @@ export interface Driver {
   birthDate: string
   status: "active" | "inactive" | "suspended"
   commissionPercentage?: number
+  permissions?: DriverPermissions
   userId: string
   adminId?: string
   createdAt?: Date
@@ -138,6 +161,7 @@ export function useDrivers() {
 
       const dataToSave = {
         ...driverData,
+        permissions: driverData.permissions || DEFAULT_DRIVER_PERMISSIONS,
         userId: user.id,
         createdAt: new Date(),
         createdBy: user.name,
@@ -163,10 +187,11 @@ export function useDrivers() {
   const updateDriver = async (id: string, driverData: Partial<Omit<Driver, "id" | "userId">>) => {
     try {
       const driverRef = doc(db, "drivers", id)
-      await updateDoc(driverRef, {
-        ...driverData,
-        updatedAt: new Date(),
-      })
+      // Remove campos undefined antes de atualizar (Firestore rejeita undefined)
+      const cleanData = Object.fromEntries(
+        Object.entries({ ...driverData, updatedAt: new Date() }).filter(([_, v]) => v !== undefined)
+      )
+      await updateDoc(driverRef, cleanData)
       return true
     } catch (error) {
       console.error("Erro ao atualizar motorista:", error)
