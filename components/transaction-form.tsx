@@ -13,7 +13,7 @@ import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { useTrips } from "@/hooks/use-trips"
-import { useRentals } from "@/hooks/use-rentals"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import { Percent, TrendingDown } from "lucide-react"
 
 interface TransactionFormProps {
@@ -42,8 +42,7 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
   const { trucks } = useTrucks()
   const { drivers } = useDrivers()
   const { trips } = useTrips()
-  const { rentals } = useRentals()
-
+  const { suppliers } = useSuppliers()
   const [formData, setFormData] = useState({
     type: transaction?.type || ("receita" as const),
     description: transaction?.description || "",
@@ -53,7 +52,7 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
     truckId: transaction?.truckId || undefined,
     driverId: transaction?.driverId || undefined,
     tripId: transaction?.tripId || undefined,
-    rentalId: transaction?.rentalId || undefined,
+    supplierId: transaction?.supplierId || undefined,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,7 +63,7 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
       truckId: formData.truckId || undefined,
       driverId: formData.driverId || undefined,
       tripId: formData.tripId || undefined,
-      rentalId: formData.rentalId || undefined,
+      supplierId: formData.supplierId || undefined,
     }
 
     // Gera a despesa de comissão apenas em novas receitas com motorista comissionado
@@ -101,8 +100,6 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
     if (a.status !== "in_progress" && b.status === "in_progress") return 1
     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   })
-  const completedRentals = rentals.filter((rental) => rental.status === "completed")
-
   // Motorista selecionado com comissão
   const selectedDriver = useMemo(
     () => drivers.find((d) => d.id === formData.driverId),
@@ -243,23 +240,6 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rentalId">Locação (opcional)</Label>
-              <Select value={formData.rentalId || "none"} onValueChange={(value) => handleChange("rentalId", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma locação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {completedRentals.map((rental) => (
-                    <SelectItem key={rental.id} value={rental.id}>
-                      {rental.machinerySerial} - {rental.driverName} ({new Date(rental.date).toLocaleDateString("pt-BR")})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="truckId">Caminhão (opcional)</Label>
               <Select value={formData.truckId || "none"} onValueChange={(value) => handleChange("truckId", value)}>
                 <SelectTrigger>
@@ -296,6 +276,28 @@ export function TransactionForm({ transaction, onSubmit, onCancel, isLoading }: 
                       )}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="supplierId">Empresa (opcional)</Label>
+              <Select value={formData.supplierId || "none"} onValueChange={(value) => handleChange("supplierId", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {suppliers
+                    .filter((s) => s.status === "active")
+                    .map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id}>
+                        {supplier.tradeName || supplier.name}
+                        {supplier.category && (
+                          <span className="ml-2 text-muted-foreground">({supplier.category})</span>
+                        )}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

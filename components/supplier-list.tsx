@@ -10,7 +10,6 @@ import type { Supplier } from "@/hooks/use-suppliers"
 import { PermissionGate } from "@/components/permission-gate"
 import { SupplierDetailsModal } from "./supplier-details-modal"
 import { RegisteredBy } from "./registered-by"
-import { useTransactions } from "@/hooks/use-transactions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +35,6 @@ export function SupplierList({ suppliers, onEdit, onDelete, isLoading }: Supplie
   const supplierIdParam = searchParams.get("supplierId")
 
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const { transactions } = useTransactions()
 
   const selectedSupplier = useMemo(() => {
     if (!supplierIdParam || !suppliers) return null
@@ -62,19 +60,6 @@ export function SupplierList({ suppliers, onEdit, onDelete, isLoading }: Supplie
     }
   }
 
-  // Calcula totais por fornecedor (transações vinculadas)
-  const supplierStats = useMemo(() => {
-    const stats: Record<string, { total: number; count: number }> = {}
-    transactions.forEach((tx) => {
-      if (tx.supplierId && tx.type === "despesa") {
-        if (!stats[tx.supplierId]) stats[tx.supplierId] = { total: 0, count: 0 }
-        stats[tx.supplierId].total += tx.amount
-        stats[tx.supplierId].count += 1
-      }
-    })
-    return stats
-  }, [transactions])
-
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -98,14 +83,10 @@ export function SupplierList({ suppliers, onEdit, onDelete, isLoading }: Supplie
     )
   }
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-
   return (
     <>
       <div className="responsive-grid gap-4">
         {suppliers.map((supplier) => {
-          const stats = supplierStats[supplier.id] || { total: 0, count: 0 }
           const displayName = supplier.tradeName || supplier.name
           const initials = displayName
             .split(" ")
@@ -168,26 +149,6 @@ export function SupplierList({ suppliers, onEdit, onDelete, isLoading }: Supplie
                         </span>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Stats — total e compras */}
-                <div className="flex items-end justify-between mt-3 py-3 px-3.5 rounded-sm bg-primary/5 border border-primary/10">
-                  <div>
-                    <span className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 block">
-                      Total Gasto
-                    </span>
-                    <span className="text-lg font-black text-primary leading-none mt-1 block">
-                      {formatCurrency(stats.total)}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 block">
-                      Compras
-                    </span>
-                    <span className="text-lg font-black text-foreground leading-none mt-1 block">
-                      {stats.count}
-                    </span>
                   </div>
                 </div>
 

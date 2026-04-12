@@ -91,19 +91,19 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[url('https://www.sofit4.com.br/wp-content/uploads/direcao-defensiva-para-caminhoes-sofit.jpg')] bg-cover bg-center opacity-20 grayscale" />
 
       <Card className="relative z-10 w-full max-w-md shadow-2xl rounded-[2.5rem] border border-white/10 backdrop-blur-xl bg-white/95 dark:bg-black/80 animate-in fade-in zoom-in-95 duration-700 overflow-hidden">
-        <CardHeader className="text-center space-y-6 pt-10 px-8">
+        <CardHeader className="text-center space-y-3 pt-6 px-8 pb-2">
           <div className="flex justify-center">
-            <img src="/FroX-Preto.svg" alt="FroX" className="h-14 w-auto mb-2" />
+            <img src="/FroX-Preto.svg" alt="FroX" className="h-12 w-auto" />
           </div>
-          <div className="space-y-2">
-            <CardTitle className="text-3xl font-extrabold tracking-tight uppercase">Bem-vindo</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-extrabold tracking-tight uppercase">Bem-vindo</CardTitle>
             <CardDescription className="text-sm font-medium text-muted-foreground/80">
               Acesse sua conta para gerenciar sua frota
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="px-8 pb-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <CardContent className="px-8 pb-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80 ml-1">
                 E-mail de acesso
@@ -170,7 +170,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="link" className="text-xs text-muted-foreground hover:text-primary font-medium transition-colors" disabled={isAuthenticating}>
@@ -210,7 +210,7 @@ export default function LoginPage() {
             </Dialog>
           </div>
 
-          <div className="mt-8 pt-8 border-t border-border/40 text-center text-sm">
+          <div className="mt-4 pt-4 border-t border-border/40 text-center text-sm">
             <p className="text-muted-foreground/70 font-medium">
               Não tem uma conta?{" "}
               <Link
