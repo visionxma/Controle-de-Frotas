@@ -235,7 +235,7 @@ COLEÇÕES DO FIRESTORE
 
 6. TRANSACTIONS (Transações Financeiras)
    Caminho: /transactions/{transactionId}
-   
+
    Estrutura:
    {
      type: string,                    // "receita" | "despesa"
@@ -247,6 +247,10 @@ COLEÇÕES DO FIRESTORE
      driverId: string,                // ID do motorista relacionado (opcional)
      tripId: string,                  // ID da viagem relacionada (opcional)
      rentalId: string,                // ID da locação relacionada (opcional)
+     supplierId: string,              // ID do fornecedor relacionado (opcional - compras de Empresas)
+     itemName: string,                // Nome do equipamento/item comprado (compras de fornecedor)
+     quantity: number,                // Quantidade comprada (compras de fornecedor)
+     unitPrice: number,               // Preço unitário (compras de fornecedor)
      userId: string,                  // ID do usuário que criou
      adminId: string,                 // ID do admin (se criado por colaborador)
      createdBy: string,               // Nome de quem criou
@@ -272,6 +276,55 @@ COLEÇÕES DO FIRESTORE
    - getFilteredStats(): Estatísticas filtradas por período e entidade
    - getFilteredChartData(): Dados filtrados para gráficos
    
+   Regras de Segurança:
+   - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
+
+================================================================================
+
+7. SUPPLIERS (Empresas / Fornecedores)
+   Caminho: /suppliers/{supplierId}
+
+   Estrutura:
+   {
+     name: string,                    // Razão social
+     tradeName: string,               // Nome fantasia (opcional)
+     cnpj: string,                    // CNPJ formatado
+     email: string,                   // E-mail de contato (opcional)
+     phone: string,                   // Telefone
+     address: string,                 // Endereço (rua, número, bairro)
+     city: string,                    // Cidade
+     state: string,                   // UF (2 letras)
+     contactName: string,             // Nome do responsável/contato
+     category: string,                // "Equipamentos" | "Peças e Acessórios" | "Combustível" | etc.
+     status: string,                  // "active" | "inactive"
+     notes: string,                   // Observações livres
+     userId: string,                  // ID do usuário que criou
+     adminId: string,                 // ID do admin (se criado por colaborador)
+     createdBy: string,               // Nome de quem criou
+     createdByRole: string,           // "admin" | "collaborator"
+     createdAt: timestamp,            // Data de criação
+     updatedAt: timestamp             // Data de última atualização
+   }
+
+   Como é Salvo:
+   - addDoc() adiciona novo documento em /suppliers
+   - Cria pelo formulário em /empresas (componente SupplierForm)
+   - Remove campos undefined/vazios antes de salvar
+
+   Como é Puxado:
+   - Para Admin: where("userId", "==", userId) OR where("adminId", "==", userId)
+   - Para Colaborador: where("userId", "==", userId) OR where("userId", "==", adminId)
+   - Ordenação: alfabética por name (client-side)
+   - onSnapshot() para atualizações em tempo real
+
+   Relação com Transactions:
+   - Compras de fornecedores são salvas como transactions do tipo "despesa"
+     com o campo supplierId apontando para o /suppliers/{supplierId}
+   - Campos extras na transaction: itemName, quantity, unitPrice
+   - amount = quantity * unitPrice
+   - Compras aparecem automaticamente no Financeiro (página /finance)
+   - Total gasto e contagem de compras por fornecedor é calculado client-side
+
    Regras de Segurança:
    - Leitura/Criação/Atualização/Exclusão: Qualquer usuário autenticado
 

@@ -64,13 +64,51 @@ export const formatPlaca = (value: string) => {
 export const fetchCEP = async (cep: string) => {
   const cleanCEP = cep.replace(/\D/g, "")
   if (cleanCEP.length !== 8) return null
-  
+
   try {
     const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCEP}`)
     if (!response.ok) return null
     return await response.json()
   } catch (error) {
     console.error("Brasil API CEP Error:", error)
+    return null
+  }
+}
+
+/**
+ * Resposta da Brasil API para CNPJ.
+ * Endpoint: GET https://brasilapi.com.br/api/cnpj/v1/{cnpj}
+ * Retorna null em caso de CNPJ inválido, não encontrado (404), ou erro de rede.
+ */
+export interface BrasilApiCnpjResponse {
+  cnpj: string
+  razao_social: string
+  nome_fantasia: string
+  cep: string
+  logradouro: string
+  numero: string
+  complemento: string
+  bairro: string
+  municipio: string
+  uf: string
+  email: string
+  ddd_telefone_1: string
+  ddd_telefone_2: string
+  descricao_tipo_de_logradouro: string
+  situacao_cadastral: number
+  descricao_situacao_cadastral: string
+}
+
+export const fetchCNPJ = async (cnpj: string): Promise<BrasilApiCnpjResponse | null> => {
+  const cleanCNPJ = cnpj.replace(/\D/g, "")
+  if (cleanCNPJ.length !== 14) return null
+
+  try {
+    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ}`)
+    if (!response.ok) return null
+    return await response.json()
+  } catch (error) {
+    console.error("Brasil API CNPJ Error:", error)
     return null
   }
 }

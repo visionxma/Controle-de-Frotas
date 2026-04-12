@@ -3,7 +3,7 @@
 import type React from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { Truck, Users, DollarSign, BarChart3, LogOut, Menu, X, MapPin, Settings } from "lucide-react"
+import { Truck, Users, DollarSign, BarChart3, LogOut, Menu, X, MapPin, Settings, Building2 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
@@ -128,6 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {[
                   { name: "Caminhões", href: "/trucks", icon: Truck },
                   { name: "Motoristas", href: "/drivers", icon: Users },
+                  { name: "Empresas", href: "/empresas", icon: Building2 },
                 ].map((item) => {
                   const isActive = pathname === item.href
                   return (

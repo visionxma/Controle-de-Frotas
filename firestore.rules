@@ -105,5 +105,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
+
+    // -------------------------------
+    // SUPPLIERS (Empresas / Fornecedores)
+    // -------------------------------
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
   }
 }

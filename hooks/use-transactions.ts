@@ -26,6 +26,10 @@ export interface Transaction {
   driverId?: string
   tripId?: string // Adicionado campo para associar transação a uma viagem
   rentalId?: string // Adicionado campo para associar transação a uma locação
+  supplierId?: string // Adicionado campo para associar despesa a um fornecedor (Empresas)
+  itemName?: string // Nome do equipamento/item comprado (uso em compras de fornecedor)
+  quantity?: number // Quantidade comprada (uso em compras de fornecedor)
+  unitPrice?: number // Preço unitário (uso em compras de fornecedor)
   isCommission?: boolean
   userId: string
   adminId?: string
