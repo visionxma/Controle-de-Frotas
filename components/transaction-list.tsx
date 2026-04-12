@@ -6,10 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, TrendingUp, TrendingDown, Search, Edit, Percent } from "lucide-react"
+import { Trash2, TrendingUp, TrendingDown, Search, Edit, Percent, Route, Warehouse, Package, MapPin } from "lucide-react"
 import type { Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
+import { useTrips } from "@/hooks/use-trips"
+import { useRentals } from "@/hooks/use-rentals"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import { PermissionGate } from "@/components/permission-gate"
 import { RegisteredBy } from "./registered-by"
 import {
@@ -33,6 +36,9 @@ interface TransactionListProps {
 export function TransactionList({ transactions, onEdit, onDelete, isLoading }: TransactionListProps) {
   const { trucks } = useTrucks()
   const { drivers } = useDrivers()
+  const { trips } = useTrips()
+  const { rentals } = useRentals()
+  const { suppliers } = useSuppliers()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<"all" | "receita" | "despesa">("all")
@@ -55,6 +61,69 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
     if (!driverId) return null
     const driver = drivers.find((d) => d.id === driverId)
     return driver?.name || null
+  }
+
+  const getTransactionOrigin = (transaction: Transaction) => {
+    if (transaction.tripId) {
+      const trip = trips.find((t) => t.id === transaction.tripId)
+      if (trip) {
+        return {
+          icon: <Route className="h-3 w-3" />,
+          label: `Viagem: ${trip.startLocation} → ${trip.endLocation || "Em rota"}`,
+          color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+        }
+      }
+      return {
+        icon: <Route className="h-3 w-3" />,
+        label: "Viagem (removida)",
+        color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+      }
+    }
+    if (transaction.rentalId) {
+      const rental = rentals.find((r) => r.id === transaction.rentalId)
+      if (rental) {
+        return {
+          icon: <Warehouse className="h-3 w-3" />,
+          label: `Locação: ${rental.machinerySerial} - ${rental.driverName}`,
+          color: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+        }
+      }
+      return {
+        icon: <Warehouse className="h-3 w-3" />,
+        label: "Locação (removida)",
+        color: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      }
+    }
+    if (transaction.supplierId) {
+      const supplier = suppliers.find((s) => s.id === transaction.supplierId)
+      const itemInfo = transaction.itemName
+        ? ` | ${transaction.itemName}${transaction.quantity ? ` x${transaction.quantity}` : ""}`
+        : ""
+      if (supplier) {
+        return {
+          icon: <Package className="h-3 w-3" />,
+          label: `Fornecedor: ${supplier.name}${itemInfo}`,
+          color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+        }
+      }
+      return {
+        icon: <Package className="h-3 w-3" />,
+        label: `Fornecedor (removido)${itemInfo}`,
+        color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+      }
+    }
+    if (transaction.isCommission) {
+      return {
+        icon: <Percent className="h-3 w-3" />,
+        label: `Comissão automática`,
+        color: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+      }
+    }
+    return {
+      icon: <MapPin className="h-3 w-3" />,
+      label: "Lançamento manual",
+      color: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+    }
   }
 
   const filteredTransactions = transactions.filter((transaction) => {
@@ -185,6 +254,17 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
                           </Badge>
                         )}
                       </div>
+                      {(() => {
+                        const origin = getTransactionOrigin(transaction)
+                        return (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <Badge className={`${origin.color} gap-1 text-[10px] font-semibold border`}>
+                              {origin.icon}
+                              {origin.label}
+                            </Badge>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
 

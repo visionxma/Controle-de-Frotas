@@ -2,16 +2,22 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, TrendingDown } from "lucide-react"
-import { useTransactions } from "@/hooks/use-transactions"
+import { TrendingUp, TrendingDown, Route, Warehouse, Package, Percent, MapPin } from "lucide-react"
+import { useTransactions, type Transaction } from "@/hooks/use-transactions"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
+import { useTrips } from "@/hooks/use-trips"
+import { useRentals } from "@/hooks/use-rentals"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import { cn } from "@/lib/utils"
 
 export function RecentTransactions() {
   const { transactions } = useTransactions()
   const { trucks } = useTrucks()
   const { drivers } = useDrivers()
+  const { trips } = useTrips()
+  const { rentals } = useRentals()
+  const { suppliers } = useSuppliers()
 
   const recentTransactions = transactions.slice(0, 5)
 
@@ -25,6 +31,26 @@ export function RecentTransactions() {
     if (!driverId) return null
     const driver = drivers.find((d) => d.id === driverId)
     return driver?.name || null
+  }
+
+  const getOriginLabel = (transaction: Transaction) => {
+    if (transaction.tripId) {
+      const trip = trips.find((t) => t.id === transaction.tripId)
+      if (trip) return `Viagem: ${trip.startLocation} → ${trip.endLocation || "Em rota"}`
+      return "Viagem (removida)"
+    }
+    if (transaction.rentalId) {
+      const rental = rentals.find((r) => r.id === transaction.rentalId)
+      if (rental) return `Locação: ${rental.machinerySerial}`
+      return "Locação (removida)"
+    }
+    if (transaction.supplierId) {
+      const supplier = suppliers.find((s) => s.id === transaction.supplierId)
+      if (supplier) return `Fornecedor: ${supplier.name}`
+      return "Fornecedor (removido)"
+    }
+    if (transaction.isCommission) return "Comissão automática"
+    return "Lançamento manual"
   }
 
   return (
@@ -53,9 +79,12 @@ export function RecentTransactions() {
                 </div>
                 <div>
                   <p className="font-bold text-sm tracking-tight text-foreground/90">{transaction.description}</p>
-                  <p className="text-[11px] text-muted-foreground/70 font-semibold tracking-wide mt-1">
+                  <p className="text-[11px] text-muted-foreground/70 font-semibold tracking-wide mt-0.5">
                     {getTruckName(transaction.truckId) || getDriverName(transaction.driverId) || "GERAL"} •{" "}
                     {new Date(transaction.date).toLocaleDateString("pt-BR")}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/50 font-medium mt-0.5">
+                    {getOriginLabel(transaction)}
                   </p>
                 </div>
               </div>
