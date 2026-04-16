@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { CityAutocomplete } from "./city-autocomplete"
-import { TruckIcon, User, MapPin, Calendar, Clock, Package, CheckCircle2, ChevronRight } from "lucide-react"
+import { CurrencyInput } from "./currency-input"
+import { TruckIcon, User, MapPin, Calendar, Clock, Package, CheckCircle2, ChevronRight, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Trip } from "@/hooks/use-trips"
 
@@ -36,6 +37,7 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
     startDate: "",
     startTime: "",
     cargoDescription: "",
+    freightValue: 0,
   })
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
       startDate: formData.startDate,
       startTime: formData.startTime,
       cargoDescription: formData.cargoDescription || undefined,
+      freightValue: formData.freightValue > 0 ? formData.freightValue : undefined,
     })
   }
 
@@ -200,6 +203,22 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
                   className="h-11 rounded-sm border-border/40 shadow-sm focus-visible:ring-primary/10"
                   required
                 />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="freightValue" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1 flex items-center gap-2">
+                  <DollarSign className="h-3 w-3 opacity-40" /> Valor do Frete
+                </Label>
+                <CurrencyInput
+                  id="freightValue"
+                  value={formData.freightValue}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, freightValue: val }))}
+                  placeholder="Ex: 3.500,00"
+                  className="h-11 rounded-sm border-border/40 shadow-sm"
+                />
+                <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest italic flex items-center gap-2 mt-1 px-1">
+                  <CheckCircle2 className="h-3 w-3" /> Valor acordado para o transporte desta carga
+                </p>
               </div>
             </div>
 

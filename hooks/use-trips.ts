@@ -48,6 +48,7 @@ export interface Trip {
   endTime?: string
   refuelingLiters?: number // Abastecimento em litros
   fuelConsumption?: number // km/L (quilômetros por litro) - consumo médio
+  freightValue?: number // Valor do frete em BRL
   status: "in_progress" | "completed"
   userId: string
   adminId?: string

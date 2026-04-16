@@ -21,10 +21,17 @@ import {
   Loader2,
   MessageSquare,
   Activity,
+  TrendingDown,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import type { Trip, TripProgressEntry } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
+import { useTransactions } from "@/hooks/use-transactions"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
+import { TripExpenseModal } from "@/components/trip-expense-modal"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { toast } from "sonner"
 
@@ -34,6 +41,7 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip }: TripDetailsProps) {
   const { calculateTripDuration, updateTrip } = useTrips()
+  const { transactions, deleteTransaction } = useTransactions()
   const { generateSingleTripReport } = usePdfReports()
   const kmTraveled = trip.endKm ? trip.endKm - trip.startKm : 0
   const duration = calculateTripDuration(trip.startDate, trip.startTime, trip.endDate, trip.endTime)
@@ -49,6 +57,28 @@ export function TripDetails({ trip }: TripDetailsProps) {
   // Observations state
   const [observations, setObservations] = useState(trip.observations || "")
   const [isSavingObs, setIsSavingObs] = useState(false)
+
+  // Expense modal state
+  const [showExpenseModal, setShowExpenseModal] = useState(false)
+  const [showAllExpenses, setShowAllExpenses] = useState(false)
+
+  const tripExpenses = transactions.filter(
+    (t) => t.tripId === trip.id && t.type === "despesa",
+  )
+  const totalExpenses = tripExpenses.reduce((sum, t) => sum + t.amount, 0)
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!confirm("Deseja realmente excluir esta despesa?")) return
+    const success = await deleteTransaction(id)
+    if (success) {
+      toast.success("Despesa removida")
+    } else {
+      toast.error("Erro ao remover despesa")
+    }
+  }
 
   const lastEntry = trip.progressEntries?.length
     ? trip.progressEntries[trip.progressEntries.length - 1]
@@ -375,6 +405,123 @@ export function TripDetails({ trip }: TripDetailsProps) {
         </Card>
       )}
 
+      {/* Despesas da Viagem — apenas em andamento */}
+      {trip.status === "in_progress" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingDown className="h-5 w-5 text-red-500" />
+                Despesas da Viagem
+              </CardTitle>
+              <Button
+                size="sm"
+                onClick={() => setShowExpenseModal(true)}
+                className="rounded-xl h-9 px-4 font-bold"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Nova Despesa
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {tripExpenses.length > 0 ? (
+              <>
+                <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-500/20 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-widest">
+                      Total de Despesas
+                    </p>
+                    <p className="text-2xl font-black text-red-700 dark:text-red-300 mt-1">
+                      {formatCurrency(totalExpenses)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-red-700/70 dark:text-red-300/70 uppercase tracking-widest">
+                      Registros
+                    </p>
+                    <p className="text-2xl font-black text-red-700 dark:text-red-300 mt-1">
+                      {tripExpenses.length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {(showAllExpenses ? tripExpenses : tripExpenses.slice(0, 3)).map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">
+                            {expense.category}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(expense.date)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold truncate">{expense.description}</p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-base font-black text-red-600 dark:text-red-400">
+                          − {formatCurrency(expense.amount)}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                          title="Excluir despesa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {tripExpenses.length > 3 && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowAllExpenses((v) => !v)}
+                    className="w-full font-bold text-xs uppercase tracking-widest text-muted-foreground hover:bg-primary hover:text-white focus-visible:bg-primary focus-visible:text-white active:bg-primary active:text-white"
+                  >
+                    {showAllExpenses ? (
+                      <>
+                        <ChevronUp className="h-4 w-4 mr-1.5" />
+                        Mostrar Menos
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-1.5" />
+                        Mostrar Mais ({tripExpenses.length - 3})
+                      </>
+                    )}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 border border-dashed rounded-lg">
+                <TrendingDown className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma despesa registrada para esta viagem.
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Clique em &quot;Nova Despesa&quot; para adicionar.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <TripExpenseModal
+        trip={trip}
+        open={showExpenseModal}
+        onOpenChange={setShowExpenseModal}
+      />
+
       {/* Fotos */}
       <TripPhotoGallery tripId={trip.id} photos={trip.photos || []} canEdit={true} />
 
@@ -430,8 +577,8 @@ export function TripDetails({ trip }: TripDetailsProps) {
           </div>
           <div className="p-3 bg-gray-50 dark:bg-muted/30 rounded-md">
             <p className="text-sm text-muted-foreground">
-              Para gerenciar despesas e receitas relacionadas a esta viagem, utilize o módulo{" "}
-              <strong>Financeiro</strong> e associe as transações a esta viagem.
+              As despesas registradas aqui são salvas no módulo <strong>Financeiro</strong> e
+              vinculadas automaticamente a esta viagem.
             </p>
           </div>
         </CardContent>
