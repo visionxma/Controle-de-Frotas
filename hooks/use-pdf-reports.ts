@@ -590,10 +590,13 @@ export const usePdfReports = () => {
     [generateHeader],
   )
   const generateSingleTripReport = useCallback(
-    (trip: any) => {
+    (trip: any, transactions: any[] = []) => {
       const doc = new jsPDF()
       const tripId = trip.id?.slice(-6) || "—"
-      let yPos = generateHeader(doc, `Relatório de Viagem #${tripId}`)
+      let yPos: number = generateHeader(doc, `Relatório de Viagem #${tripId}`)
+
+      const formatBRL = (value: number) =>
+        value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 
       const kmTraveled = trip.endKm && trip.startKm ? trip.endKm - trip.startKm : 0
       const fuelConsumed =
@@ -684,6 +687,139 @@ export const usePdfReports = () => {
           })
           yPos = (doc as any).lastAutoTable.finalY + 15
         }
+      }
+
+      // Fluxo Financeiro
+      const tripTx = (transactions || []).filter((t) => t.tripId === trip.id)
+      const tripExpenses = tripTx.filter((t) => t.type === "despesa")
+      const tripIncomes = tripTx.filter((t) => t.type === "receita")
+      const totalExpenses = tripExpenses.reduce((sum, t) => sum + (t.amount || 0), 0)
+      const totalIncomes = tripIncomes.reduce((sum, t) => sum + (t.amount || 0), 0)
+      const freight = trip.freightValue || 0
+      const totalRevenues = freight + totalIncomes
+      const profit = totalRevenues - totalExpenses
+
+      const hasFinancialData = freight > 0 || tripExpenses.length > 0 || tripIncomes.length > 0
+
+      if (hasFinancialData) {
+        if (yPos > 240) {
+          doc.addPage()
+          yPos = 20
+        }
+
+        doc.setTextColor(0, 0, 0)
+        doc.setFontSize(14)
+        doc.setFont("helvetica", "bold")
+        doc.text("Fluxo Financeiro", 20, yPos)
+        yPos += 10
+
+        // Receitas
+        const incomeRows: string[][] = []
+        if (freight > 0) {
+          incomeRows.push(["Frete", "Valor do frete", formatBRL(freight)])
+        }
+        tripIncomes.forEach((t) => {
+          incomeRows.push([t.category || "—", t.description || "—", formatBRL(t.amount || 0)])
+        })
+
+        if (incomeRows.length > 0) {
+          doc.setFontSize(11)
+          doc.setFont("helvetica", "bold")
+          doc.setTextColor(34, 197, 94)
+          doc.text("Receitas", 20, yPos)
+          yPos += 6
+          doc.setTextColor(0, 0, 0)
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Categoria", "Descrição", "Valor"]],
+            body: incomeRows,
+            theme: "grid",
+            headStyles: { fillColor: [34, 197, 94] },
+            margin: { left: 20, right: 20 },
+            columnStyles: {
+              0: { cellWidth: 45, fontStyle: "bold" },
+              2: { cellWidth: 35, halign: "right" },
+            },
+            foot: [["", "Total Receitas", formatBRL(totalRevenues)]],
+            footStyles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: "bold" },
+          })
+          yPos = (doc as any).lastAutoTable.finalY + 10
+        }
+
+        // Despesas
+        if (tripExpenses.length > 0) {
+          if (yPos > 250) {
+            doc.addPage()
+            yPos = 20
+          }
+          doc.setFontSize(11)
+          doc.setFont("helvetica", "bold")
+          doc.setTextColor(239, 68, 68)
+          doc.text("Despesas", 20, yPos)
+          yPos += 6
+          doc.setTextColor(0, 0, 0)
+
+          const expenseRows = tripExpenses.map((t) => [
+            t.category || "—",
+            t.description || "—",
+            formatBRL(t.amount || 0),
+          ])
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Categoria", "Descrição", "Valor"]],
+            body: expenseRows,
+            theme: "grid",
+            headStyles: { fillColor: [239, 68, 68] },
+            margin: { left: 20, right: 20 },
+            columnStyles: {
+              0: { cellWidth: 45, fontStyle: "bold" },
+              2: { cellWidth: 35, halign: "right" },
+            },
+            foot: [["", "Total Despesas", formatBRL(totalExpenses)]],
+            footStyles: { fillColor: [254, 226, 226], textColor: [153, 27, 27], fontStyle: "bold" },
+          })
+          yPos = (doc as any).lastAutoTable.finalY + 10
+        }
+
+        // Resumo / Lucro
+        if (yPos > 250) {
+          doc.addPage()
+          yPos = 20
+        }
+
+        const profitColor: [number, number, number] =
+          profit >= 0 ? [34, 197, 94] : [239, 68, 68]
+        const profitBg: [number, number, number] =
+          profit >= 0 ? [220, 252, 231] : [254, 226, 226]
+        const profitText: [number, number, number] =
+          profit >= 0 ? [22, 101, 52] : [153, 27, 27]
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Resumo Financeiro", "Valor"]],
+          body: [
+            ["Total de Receitas", formatBRL(totalRevenues)],
+            ["Total de Despesas", formatBRL(totalExpenses)],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [168, 85, 247] },
+          margin: { left: 20, right: 20 },
+          columnStyles: {
+            0: { cellWidth: 100, fontStyle: "bold" },
+            1: { cellWidth: 60, halign: "right" },
+          },
+          foot: [[profit >= 0 ? "Lucro Líquido" : "Prejuízo", formatBRL(profit)]],
+          footStyles: {
+            fillColor: profitBg,
+            textColor: profitText,
+            fontStyle: "bold",
+            fontSize: 12,
+          },
+        })
+        yPos = (doc as any).lastAutoTable.finalY + 15
+        doc.setTextColor(0, 0, 0)
       }
 
       // Registered by

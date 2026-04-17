@@ -40,6 +40,11 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
 
   const currentTruck = trucks.find((t) => t.id === trip.truckId)
 
+  const totalTripRefueled = (trip.refuelingEntries || []).reduce(
+    (sum, r) => sum + (r.liters || 0),
+    0,
+  )
+
   useEffect(() => {
     const now = new Date()
     const date = now.toISOString().split("T")[0]
@@ -49,8 +54,31 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
       ...prev,
       endDate: date,
       endTime: time,
+      refuelingLiters: totalTripRefueled > 0 ? String(totalTripRefueled) : prev.refuelingLiters,
     }))
-  }, [])
+  }, [totalTripRefueled])
+
+  // Auto-calcula KM/L = km rodados / litros abastecidos
+  useEffect(() => {
+    const endKmNum = Number.parseInt(formData.endKm, 10)
+    const refuelNum = Number.parseFloat(formData.refuelingLiters)
+    if (
+      !isNaN(endKmNum) &&
+      !isNaN(refuelNum) &&
+      endKmNum > trip.startKm &&
+      refuelNum > 0
+    ) {
+      const kmPerLiter = (endKmNum - trip.startKm) / refuelNum
+      setFormData((prev) => ({
+        ...prev,
+        fuelConsumption: kmPerLiter.toFixed(2),
+      }))
+    }
+  }, [formData.endKm, formData.refuelingLiters, trip.startKm])
+
+  const isFuelConsumptionAutoCalculated =
+    Number.parseInt(formData.endKm, 10) > trip.startKm &&
+    Number.parseFloat(formData.refuelingLiters) > 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -230,6 +258,11 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
                     />
                     <span className="absolute left-3 top-3 text-[10px] font-black text-muted-foreground/30 italic">L</span>
                 </div>
+                {totalTripRefueled > 0 && (
+                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">
+                    Preenchido automaticamente com {totalTripRefueled.toFixed(2)} L de {(trip.refuelingEntries || []).length} abastecimento(s) registrado(s) na viagem
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -247,6 +280,11 @@ export function CompleteTrip({ trip, onSubmit, onCancel, isLoading }: CompleteTr
                   className="h-11 rounded-sm border-border/40 font-black italic tracking-tighter text-lg"
                   required
                 />
+                {isFuelConsumptionAutoCalculated && (
+                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">
+                    Calculado automaticamente: KM rodados ÷ litros abastecidos
+                  </p>
+                )}
               </div>
 
               {kmTraveled > 0 && (

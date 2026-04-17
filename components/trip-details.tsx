@@ -26,8 +26,9 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  CheckCircle,
 } from "lucide-react"
-import type { Trip, TripProgressEntry } from "@/hooks/use-trips"
+import type { Trip, TripProgressEntry, TripRefuelingEntry } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
@@ -37,9 +38,10 @@ import { toast } from "sonner"
 
 interface TripDetailsProps {
   trip: Trip
+  onComplete?: (trip: Trip) => void
 }
 
-export function TripDetails({ trip }: TripDetailsProps) {
+export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const { calculateTripDuration, updateTrip } = useTrips()
   const { transactions, deleteTransaction } = useTransactions()
   const { generateSingleTripReport } = usePdfReports()
@@ -61,6 +63,14 @@ export function TripDetails({ trip }: TripDetailsProps) {
   // Expense modal state
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showAllExpenses, setShowAllExpenses] = useState(false)
+
+  // Refueling form state
+  const [refuelLiters, setRefuelLiters] = useState("")
+  const [refuelStation, setRefuelStation] = useState("")
+  const [isSavingRefuel, setIsSavingRefuel] = useState(false)
+
+  const refuelingEntries = trip.refuelingEntries || []
+  const totalRefueled = refuelingEntries.reduce((sum, r) => sum + (r.liters || 0), 0)
 
   const tripExpenses = transactions.filter(
     (t) => t.tripId === trip.id && t.type === "despesa",
@@ -123,6 +133,52 @@ export function TripDetails({ trip }: TripDetailsProps) {
     }
   }
 
+  const handleAddRefuel = async () => {
+    const liters = Number(refuelLiters)
+    if (!liters || liters <= 0) {
+      toast.error("Informe a quantidade de litros")
+      return
+    }
+
+    setIsSavingRefuel(true)
+    try {
+      const newEntry: TripRefuelingEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        liters,
+        station: refuelStation.trim() || undefined,
+        timestamp: new Date().toISOString(),
+      }
+
+      const success = await updateTrip(trip.id, {
+        refuelingEntries: [...refuelingEntries, newEntry],
+      } as any)
+
+      if (success) {
+        toast.success("Abastecimento registrado!")
+        setRefuelLiters("")
+        setRefuelStation("")
+      } else {
+        toast.error("Erro ao registrar abastecimento")
+      }
+    } catch {
+      toast.error("Erro ao registrar abastecimento")
+    } finally {
+      setIsSavingRefuel(false)
+    }
+  }
+
+  const handleDeleteRefuel = async (id: string) => {
+    if (!confirm("Remover este abastecimento?")) return
+    const success = await updateTrip(trip.id, {
+      refuelingEntries: refuelingEntries.filter((r) => r.id !== id),
+    } as any)
+    if (success) {
+      toast.success("Abastecimento removido")
+    } else {
+      toast.error("Erro ao remover abastecimento")
+    }
+  }
+
   const handleSaveObservations = async () => {
     setIsSavingObs(true)
     try {
@@ -173,7 +229,7 @@ export function TripDetails({ trip }: TripDetailsProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => generateSingleTripReport(trip)}
+                  onClick={() => generateSingleTripReport(trip, transactions)}
                   className="h-8 px-3 rounded-xl border-border/40 font-bold text-xs hover:bg-green-500/5 hover:text-green-600 hover:border-green-500/30 transition-all"
                 >
                   <FileText className="h-3.5 w-3.5 mr-1.5" />
@@ -516,6 +572,118 @@ export function TripDetails({ trip }: TripDetailsProps) {
         </Card>
       )}
 
+      {/* Abastecimentos da Viagem — apenas em andamento */}
+      {trip.status === "in_progress" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Fuel className="h-5 w-5 text-blue-500" />
+                Abastecimentos da Viagem
+              </CardTitle>
+              {totalRefueled > 0 && (
+                <Badge variant="outline" className="font-bold">
+                  Total: {totalRefueled.toFixed(2)} L
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {refuelingEntries.length > 0 && (
+              <div className="space-y-2">
+                {refuelingEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Fuel className="h-4 w-4 text-blue-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">
+                          {entry.liters.toFixed(2)} L
+                          {entry.station && (
+                            <span className="text-muted-foreground font-normal">
+                              {" "}
+                              — {entry.station}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(entry.timestamp)} {formatTime(entry.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDeleteRefuel(entry.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                      title="Remover abastecimento"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="p-4 border rounded-lg space-y-4">
+              <p className="text-sm font-semibold">Registrar Novo Abastecimento</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="refuel-liters" className="text-xs font-bold text-muted-foreground uppercase">
+                    Litros *
+                  </Label>
+                  <Input
+                    id="refuel-liters"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ex: 120"
+                    value={refuelLiters}
+                    onChange={(e) => setRefuelLiters(e.target.value)}
+                    disabled={isSavingRefuel}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="refuel-station" className="text-xs font-bold text-muted-foreground uppercase">
+                    Posto / Cidade
+                  </Label>
+                  <Input
+                    id="refuel-station"
+                    type="text"
+                    placeholder="Ex: Posto Shell - Curitiba"
+                    value={refuelStation}
+                    onChange={(e) => setRefuelStation(e.target.value)}
+                    disabled={isSavingRefuel}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleAddRefuel} disabled={isSavingRefuel} className="w-full sm:w-auto">
+                {isSavingRefuel ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Abastecimento
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {totalRefueled > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Ao finalizar a viagem, o total de{" "}
+                <strong>{totalRefueled.toFixed(2)} L</strong> será preenchido automaticamente.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <TripExpenseModal
         trip={trip}
         open={showExpenseModal}
@@ -583,6 +751,19 @@ export function TripDetails({ trip }: TripDetailsProps) {
           </div>
         </CardContent>
       </Card>
+
+      {trip.status === "in_progress" && onComplete && (
+        <div className="flex justify-end pt-2">
+          <Button
+            size="lg"
+            onClick={() => onComplete(trip)}
+            className="rounded-2xl bg-primary hover:bg-primary/90 font-bold shadow-lg shadow-primary/20 h-12 px-6"
+          >
+            <CheckCircle className="h-5 w-5 mr-2" />
+            Finalizar Viagem
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

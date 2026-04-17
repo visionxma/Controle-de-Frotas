@@ -32,6 +32,13 @@ export interface TripProgressEntry {
   timestamp: string
 }
 
+export interface TripRefuelingEntry {
+  id: string
+  liters: number
+  station?: string
+  timestamp: string
+}
+
 export interface Trip {
   id: string
   truckId: string
@@ -61,6 +68,7 @@ export interface Trip {
   currentKm?: number
   currentCity?: string
   observations?: string
+  refuelingEntries?: TripRefuelingEntry[]
 }
 
 export function useTrips() {

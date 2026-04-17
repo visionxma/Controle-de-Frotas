@@ -11,6 +11,7 @@ import { TripList } from "@/components/trip-list"
 import { CompleteTrip } from "@/components/complete-trip"
 import { TripDetails } from "@/components/trip-details"
 import { useTrips, type Trip } from "@/hooks/use-trips"
+import { useTransactions } from "@/hooks/use-transactions"
 import { useToast } from "@/hooks/use-toast"
 import { SearchFilter } from "@/components/search-filter"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
@@ -29,6 +30,7 @@ export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   const { trips, isLoading, addTrip, completeTrip, deleteTrip } = useTrips()
+  const { transactions } = useTransactions()
 
   const selectedTrip = useMemo(() => {
     if (!tripIdParam || !trips) return null
@@ -158,7 +160,7 @@ export default function TripsPage() {
   }
 
   const handleGenerateSingleReport = (trip: Trip) => {
-    generateSingleTripReport(trip)
+    generateSingleTripReport(trip, transactions)
   }
 
   const filteredTrips = useMemo(() => {
@@ -254,7 +256,7 @@ export default function TripsPage() {
                   ← Voltar
                 </Button>
               </div>
-              <TripDetails trip={selectedTrip} />
+              <TripDetails trip={selectedTrip} onComplete={handleComplete} />
             </div>
           ) : (
             <TripList
