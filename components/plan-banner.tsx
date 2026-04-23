@@ -25,18 +25,19 @@ export function PlanBanner() {
     const dateLabel = graceUntil.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 
     return (
-      <div className="relative overflow-hidden rounded-sm bg-amber-400 border-2 border-amber-600 shadow-xl shadow-amber-500/20">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4">
+      <div className="relative overflow-hidden rounded-sm bg-gradient-to-r from-yellow-400 via-amber-400 to-red-500 border-2 border-red-700 shadow-xl shadow-red-500/30">
+        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,rgba(0,0,0,0.05)_20px,rgba(0,0,0,0.05)_40px)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-amber-950 border-2 border-amber-900 shadow-md">
-              <AlertTriangle className="h-5 w-5 text-amber-300" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-red-700 border-2 border-red-900 shadow-md animate-pulse">
+              <AlertTriangle className="h-5 w-5 text-yellow-300" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm sm:text-base font-black uppercase tracking-tight text-amber-950">
+              <span className="text-sm sm:text-base font-black uppercase tracking-tight text-red-950 drop-shadow-sm">
                 Aguardando pagamento do boleto
               </span>
-              <span className="text-xs sm:text-sm text-amber-950 font-semibold">
-                Acesso liberado até <strong className="underline decoration-2 underline-offset-2">{dateLabel}</strong> ({daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes). Após essa data, o sistema será bloqueado até a confirmação.
+              <span className="text-xs sm:text-sm text-red-950 font-bold">
+                Acesso liberado até <strong className="underline decoration-2 decoration-red-800 underline-offset-2">{dateLabel}</strong> ({daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes). Após essa data, o sistema será bloqueado até a confirmação.
               </span>
             </div>
           </div>

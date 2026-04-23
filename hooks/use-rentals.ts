@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, limit, orderBy } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useMachinery } from "./use-machinery"
 import { differenceInDays, parseISO } from "date-fns"
@@ -65,26 +65,23 @@ export function useRentals() {
 
       let rentalsQuery
 
+      // or() + orderBy exige índice composto por cada ramo do OR. A ordenação
+      // é feita client-side logo abaixo, então omitimos orderBy/limit no servidor
+      // para dispensar os índices e eliminar o FirebaseError "multiple indexes".
       if (user.role === "admin") {
         rentalsQuery = query(
           collection(db, "rentals"),
           or(where("userId", "==", user.id), where("adminId", "==", user.id)),
-          orderBy("createdAt", "desc"),
-          limit(200)
         )
       } else if (user.role === "collaborator" && user.adminId) {
         rentalsQuery = query(
           collection(db, "rentals"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
-          orderBy("createdAt", "desc"),
-          limit(200)
         )
       } else {
         rentalsQuery = query(
-            collection(db, "rentals"), 
-            where("userId", "==", user.id),
-            orderBy("createdAt", "desc"),
-            limit(200)
+          collection(db, "rentals"),
+          where("userId", "==", user.id),
         )
       }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, orderBy, limit } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useTrucks } from "./use-trucks"
 import { differenceInHours, differenceInDays } from "date-fns"
@@ -95,16 +95,18 @@ export function useTrips() {
     if (listenerCount === 1 && !globalUnsubscribe) {
       let tripsQuery;
 
+      // or() + orderBy exige índice composto por cada ramo do OR. A ordenação
+      // é feita client-side logo abaixo, então omitimos orderBy/limit no servidor
+      // para dispensar os índices e eliminar o FirebaseError "multiple indexes".
       if (user.role === "admin") {
-        tripsQuery = query(collection(db, "trips"), or(where("userId", "==", user.id), where("adminId", "==", user.id)), orderBy("createdAt", "desc"), limit(200))
+        tripsQuery = query(collection(db, "trips"), or(where("userId", "==", user.id), where("adminId", "==", user.id)))
       } else if (user.role === "collaborator" && user.adminId) {
         tripsQuery = query(
           collection(db, "trips"),
           or(where("userId", "==", user.id), where("userId", "==", user.adminId)),
-          orderBy("createdAt", "desc"), limit(200)
         )
       } else {
-        tripsQuery = query(collection(db, "trips"), where("userId", "==", user.id), orderBy("createdAt", "desc"), limit(200))
+        tripsQuery = query(collection(db, "trips"), where("userId", "==", user.id))
       }
 
       const subscribeToQuery = (q: any) => {
