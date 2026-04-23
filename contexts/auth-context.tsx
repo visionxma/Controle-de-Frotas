@@ -16,7 +16,7 @@ import {
 } from "firebase/auth"
 import { initializeApp, deleteApp } from "firebase/app"
 import { auth, app as firebaseApp } from "@/lib/firebase"
-import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, limit } from "firebase/firestore"
+import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, limit, getFirestore } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface User {
@@ -214,18 +214,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isAuthenticating) return false
 
       setIsAuthenticating(true)
+
+      // App secundário isolado: createUserWithEmailAndPassword no app principal
+      // dispara onAuthStateChanged antes do setDoc completar — o listener não
+      // encontraria o doc em users/ e deslogaria o usuário recém-criado, deixando
+      // uma conta órfã no Firebase Auth sem documento no Firestore.
+      const secondaryApp = initializeApp(firebaseApp.options, `register-${Date.now()}`)
+      const secondaryAuth = getAuth(secondaryApp)
+      // Firestore precisa estar vinculado ao mesmo app do auth — senão o
+      // request.auth visto pelas rules é o do app principal (não autenticado),
+      // e o setDoc em users/{uid} falha com permission-denied.
+      const secondaryDb = getFirestore(secondaryApp)
+
       try {
         if (!auth) {
           throw new Error("Firebase Auth não está configurado")
         }
 
-        // Cria o usuário no Firebase Auth
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
         const firebaseUser = userCredential.user
 
         await updateProfile(firebaseUser, { displayName: name })
 
-        await setDoc(doc(db, "users", firebaseUser.uid), {
+        await setDoc(doc(secondaryDb, "users", firebaseUser.uid), {
           name,
           email,
           company,
@@ -239,11 +250,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date(),
         })
 
+        await signOut(secondaryAuth)
+
+        // Agora sim — autentica no app principal com o doc já existindo.
+        await signInWithEmailAndPassword(auth, email, password)
+
         return true
       } catch (error) {
         console.error("Erro no registro:", error)
         return false
       } finally {
+        await deleteApp(secondaryApp).catch(() => null)
         setIsAuthenticating(false)
       }
     },
