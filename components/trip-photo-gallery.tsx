@@ -129,6 +129,7 @@ export function TripPhotoGallery({ tripId, photos = [], canEdit = true }: TripPh
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -294,5 +295,26 @@ export function TripPhotoGallery({ tripId, photos = [], canEdit = true }: TripPh
         )}
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!deletePhoto_} onOpenChange={(open) => !open && setDeletePhoto_(null)}>
+      <AlertDialogContent className="rounded-sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta foto?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-foreground/80 font-medium space-y-2">
+              <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> A foto será apagada do servidor e não poderá ser recuperada.</p>
+              <p className="text-sm">A foto deixará de aparecer na galeria desta viagem e no relatório PDF gerado.</p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+            Confirmar Exclusão
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

@@ -39,7 +39,7 @@ import {
   CheckCircle,
   DollarSign,
 } from "lucide-react"
-import type { Trip, TripProgressEntry, TripRefuelingEntry } from "@/hooks/use-trips"
+import type { Trip, TripProgressEntry, TripRefuelingEntry, TripFreightEntry } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
@@ -82,9 +82,13 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const [refuelStation, setRefuelStation] = useState("")
   const [isSavingRefuel, setIsSavingRefuel] = useState(false)
 
-  // Freight value edit state
-  const [freightValue, setFreightValue] = useState<number>(trip.freightValue || 0)
+  // Freight entries form state
+  const [newFreightValue, setNewFreightValue] = useState<number>(0)
+  const [newFreightDescription, setNewFreightDescription] = useState("")
+  const [newFreightOrigin, setNewFreightOrigin] = useState("")
+  const [newFreightDestination, setNewFreightDestination] = useState("")
   const [isSavingFreight, setIsSavingFreight] = useState(false)
+  const [deleteFreightId, setDeleteFreightId] = useState<string | null>(null)
 
   // Confirmação de exclusão
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null)
@@ -92,6 +96,12 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
 
   const refuelingEntries = trip.refuelingEntries || []
   const totalRefueled = refuelingEntries.reduce((sum, r) => sum + (r.liters || 0), 0)
+
+  const freightEntries = trip.freightEntries || []
+  const totalFreight = freightEntries.reduce((sum, f) => sum + (f.value || 0), 0)
+  // Valor legado (viagens antigas cadastradas antes dos múltiplos fretes)
+  const legacyFreightValue = (!freightEntries.length && trip.freightValue) ? trip.freightValue : 0
+  const displayedFreightTotal = totalFreight + legacyFreightValue
 
   const tripExpenses = transactions.filter(
     (t) => t.tripId === trip.id && t.type === "despesa",
@@ -202,27 +212,75 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
     setDeleteRefuelId(null)
   }
 
-  const handleSaveFreight = async () => {
-    if (freightValue < 0) {
-      toast.error("O valor do frete não pode ser negativo")
+  const handleAddFreight = async () => {
+    if (!newFreightValue || newFreightValue <= 0) {
+      toast.error("Informe um valor de frete maior que zero")
       return
     }
 
     setIsSavingFreight(true)
     try {
+      const newEntry: TripFreightEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        value: newFreightValue,
+        description: newFreightDescription.trim() || undefined,
+        origin: newFreightOrigin.trim() || undefined,
+        destination: newFreightDestination.trim() || undefined,
+        timestamp: new Date().toISOString(),
+      }
+
+      // Migra valor legado para a lista no primeiro registro
+      const baseEntries: TripFreightEntry[] = freightEntries.length
+        ? freightEntries
+        : legacyFreightValue > 0
+          ? [{
+              id: `legacy-${Date.now()}`,
+              value: legacyFreightValue,
+              description: trip.cargoDescription || undefined,
+              origin: trip.startLocation || undefined,
+              destination: trip.endLocation || undefined,
+              timestamp: new Date(`${trip.startDate}T${trip.startTime || "00:00"}`).toISOString(),
+            }]
+          : []
+
+      const updatedEntries = [...baseEntries, newEntry]
+      const updatedTotal = updatedEntries.reduce((sum, f) => sum + (f.value || 0), 0)
+
       const success = await updateTrip(trip.id, {
-        freightValue: freightValue > 0 ? freightValue : undefined,
+        freightEntries: updatedEntries,
+        freightValue: updatedTotal,
       } as any)
+
       if (success) {
-        toast.success("Valor do frete atualizado!")
+        toast.success("Frete adicionado!")
+        setNewFreightValue(0)
+        setNewFreightDescription("")
+        setNewFreightOrigin("")
+        setNewFreightDestination("")
       } else {
-        toast.error("Erro ao atualizar valor do frete")
+        toast.error("Erro ao adicionar frete")
       }
     } catch {
-      toast.error("Erro ao atualizar valor do frete")
+      toast.error("Erro ao adicionar frete")
     } finally {
       setIsSavingFreight(false)
     }
+  }
+
+  const confirmDeleteFreight = async () => {
+    if (!deleteFreightId) return
+    const updatedEntries = freightEntries.filter((f) => f.id !== deleteFreightId)
+    const updatedTotal = updatedEntries.reduce((sum, f) => sum + (f.value || 0), 0)
+    const success = await updateTrip(trip.id, {
+      freightEntries: updatedEntries,
+      freightValue: updatedTotal > 0 ? updatedTotal : undefined,
+    } as any)
+    if (success) {
+      toast.success("Frete removido")
+    } else {
+      toast.error("Erro ao remover frete")
+    }
+    setDeleteFreightId(null)
   }
 
   const handleSaveObservations = async () => {
@@ -504,43 +562,165 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         </Card>
       )}
 
-      {/* Valor do Frete — apenas em andamento */}
+      {/* Fretes da Viagem — apenas em andamento */}
       {trip.status === "in_progress" && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-500" />
-              Valor do Frete
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                Fretes da Viagem
+              </CardTitle>
+              {(freightEntries.length > 0 || legacyFreightValue > 0) && (
+                <Badge variant="outline" className="font-bold">
+                  {freightEntries.length + (legacyFreightValue > 0 ? 1 : 0)}{" "}
+                  {freightEntries.length + (legacyFreightValue > 0 ? 1 : 0) === 1 ? "frete" : "fretes"}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-500/20 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-green-700 dark:text-green-300 uppercase tracking-widest">
-                  Valor Atual do Frete
-                </p>
-                <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
-                  {trip.freightValue ? formatCurrency(trip.freightValue) : "Não informado"}
-                </p>
+            {(freightEntries.length > 0 || legacyFreightValue > 0) && (
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-500/20 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-green-700 dark:text-green-300 uppercase tracking-widest">
+                    Total de Fretes
+                  </p>
+                  <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
+                    {formatCurrency(displayedFreightTotal)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-green-700/70 dark:text-green-300/70 uppercase tracking-widest">
+                    Registros
+                  </p>
+                  <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
+                    {freightEntries.length + (legacyFreightValue > 0 ? 1 : 0)}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="p-4 border rounded-lg space-y-4">
-              <p className="text-sm font-semibold">Editar Valor do Frete</p>
+            {/* Frete legado (viagens antigas que tinham um único valor) */}
+            {legacyFreightValue > 0 && freightEntries.length === 0 && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30">
+                <div className="flex items-center gap-3 min-w-0">
+                  <DollarSign className="h-4 w-4 text-green-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">
+                      {formatCurrency(legacyFreightValue)}
+                      {trip.cargoDescription && (
+                        <span className="text-muted-foreground font-normal">
+                          {" "}— {trip.cargoDescription}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Frete inicial da viagem
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lista de fretes cadastrados */}
+            {freightEntries.length > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="freight-value" className="text-xs font-bold text-muted-foreground uppercase">
-                  Valor Acordado (R$)
+                {freightEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <DollarSign className="h-4 w-4 text-green-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold">
+                          {formatCurrency(entry.value)}
+                          {entry.description && (
+                            <span className="text-muted-foreground font-normal">
+                              {" "}— {entry.description}
+                            </span>
+                          )}
+                        </p>
+                        {(entry.origin || entry.destination) && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <MapPin className="h-3 w-3" />
+                            {entry.origin || "—"}
+                            {entry.destination && <> → {entry.destination}</>}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(entry.timestamp)} {formatTime(entry.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setDeleteFreightId(entry.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                      title="Remover frete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulário para adicionar novo frete */}
+            <div className="p-4 border rounded-lg space-y-4">
+              <p className="text-sm font-semibold">Adicionar Novo Frete</p>
+              <div className="space-y-2">
+                <Label htmlFor="new-freight-value" className="text-xs font-bold text-muted-foreground uppercase">
+                  Valor do Frete *
                 </Label>
                 <CurrencyInput
-                  id="freight-value"
-                  value={freightValue}
-                  onChange={setFreightValue}
+                  id="new-freight-value"
+                  value={newFreightValue}
+                  onChange={setNewFreightValue}
                   placeholder="Ex: 3.500,00"
+                  disabled={isSavingFreight}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-freight-origin" className="text-xs font-bold text-muted-foreground uppercase">
+                    Origem
+                  </Label>
+                  <CityAutocomplete
+                    value={newFreightOrigin}
+                    onChange={setNewFreightOrigin}
+                    placeholder="Ex: São Paulo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-freight-destination" className="text-xs font-bold text-muted-foreground uppercase">
+                    Destino
+                  </Label>
+                  <CityAutocomplete
+                    value={newFreightDestination}
+                    onChange={setNewFreightDestination}
+                    placeholder="Ex: Curitiba"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-freight-description" className="text-xs font-bold text-muted-foreground uppercase">
+                  Descrição da Carga
+                </Label>
+                <Input
+                  id="new-freight-description"
+                  type="text"
+                  placeholder="Ex: 20t de soja"
+                  value={newFreightDescription}
+                  onChange={(e) => setNewFreightDescription(e.target.value)}
+                  disabled={isSavingFreight}
                 />
               </div>
               <Button
-                onClick={handleSaveFreight}
-                disabled={isSavingFreight || freightValue === (trip.freightValue || 0)}
+                onClick={handleAddFreight}
+                disabled={isSavingFreight || newFreightValue <= 0}
                 className="w-full sm:w-auto"
               >
                 {isSavingFreight ? (
@@ -550,8 +730,8 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar Valor do Frete
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Frete
                   </>
                 )}
               </Button>
@@ -906,6 +1086,30 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
           <AlertDialogFooter>
             <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteRefuel} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteFreightId} onOpenChange={(open) => !open && setDeleteFreightId(null)}>
+        <AlertDialogContent className="rounded-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir este frete?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> O registro do frete será removido da viagem.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>O total de receitas desta viagem será recalculado.</li>
+                  <li>O lucro da viagem e o dashboard financeiro serão atualizados.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFreight} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
               Confirmar Exclusão
             </AlertDialogAction>
           </AlertDialogFooter>

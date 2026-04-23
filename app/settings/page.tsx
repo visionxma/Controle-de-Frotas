@@ -18,6 +18,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -100,6 +110,7 @@ export default function SettingsPage() {
   const [isCreateCollaboratorDialogOpen, setIsCreateCollaboratorDialogOpen] = useState(false)
   const [isEditCollaboratorDialogOpen, setIsEditCollaboratorDialogOpen] = useState(false)
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null)
+  const [deletingCollaborator, setDeletingCollaborator] = useState<Collaborator | null>(null)
 
   // Estados do formulário de colaborador
   const [newCollaboratorName, setNewCollaboratorName] = useState("")
@@ -268,10 +279,10 @@ export default function SettingsPage() {
     }
   }
 
-  const handleDeleteCollaborator = async (collaborator: Collaborator) => {
-    if (!confirm(`Tem certeza que deseja excluir o colaborador ${collaborator.name}?`)) {
-      return
-    }
+  const confirmDeleteCollaborator = async () => {
+    if (!deletingCollaborator) return
+    const collaborator = deletingCollaborator
+    setDeletingCollaborator(null)
 
     try {
       const success = await deleteCollaborator(collaborator.id)
@@ -744,7 +755,7 @@ export default function SettingsPage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleDeleteCollaborator(collaborator)}
+                                  onClick={() => setDeletingCollaborator(collaborator)}
                                   className="h-8"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1226,6 +1237,33 @@ export default function SettingsPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!deletingCollaborator} onOpenChange={(open) => !open && setDeletingCollaborator(null)}>
+          <AlertDialogContent className="rounded-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">
+                Tem certeza que deseja excluir {deletingCollaborator?.name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="text-foreground/80 font-medium space-y-2">
+                  <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> O colaborador perderá o acesso ao sistema imediatamente.</p>
+                  <p className="text-sm"><strong>O que muda:</strong></p>
+                  <ul className="text-sm list-disc pl-5 space-y-1">
+                    <li>O colaborador não aparecerá mais na lista e não poderá fazer login.</li>
+                    <li>Viagens, transações e demais registros criados por ele <strong>permanecem no sistema</strong> e continuam vinculados à sua conta.</li>
+                    <li>A conta de autenticação (login) do colaborador <strong>não é removida</strong> — apenas desativada neste painel. Se precisar reativar, será necessário criar um novo colaborador com outro e-mail.</li>
+                  </ul>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteCollaborator} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+                Confirmar Exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DashboardLayout>
     </ProtectedRoute>
   )

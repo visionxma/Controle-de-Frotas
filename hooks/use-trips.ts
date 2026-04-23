@@ -39,6 +39,15 @@ export interface TripRefuelingEntry {
   timestamp: string
 }
 
+export interface TripFreightEntry {
+  id: string
+  value: number
+  description?: string
+  origin?: string
+  destination?: string
+  timestamp: string
+}
+
 export interface Trip {
   id: string
   truckId: string
@@ -55,7 +64,8 @@ export interface Trip {
   endTime?: string
   refuelingLiters?: number // Abastecimento em litros
   fuelConsumption?: number // km/L (quilômetros por litro) - consumo médio
-  freightValue?: number // Valor do frete em BRL
+  freightValue?: number // Valor total do frete em BRL (soma de freightEntries, se houver)
+  freightEntries?: TripFreightEntry[] // Lista de fretes da viagem (múltiplas cargas)
   status: "in_progress" | "completed"
   userId: string
   adminId?: string

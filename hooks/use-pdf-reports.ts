@@ -695,7 +695,11 @@ export const usePdfReports = () => {
       const tripIncomes = tripTx.filter((t) => t.type === "receita")
       const totalExpenses = tripExpenses.reduce((sum, t) => sum + (t.amount || 0), 0)
       const totalIncomes = tripIncomes.reduce((sum, t) => sum + (t.amount || 0), 0)
-      const freight = trip.freightValue || 0
+      const freightEntries: any[] = trip.freightEntries || []
+      const freightFromEntries = freightEntries.reduce((sum: number, f: any) => sum + (f.value || 0), 0)
+      // Se já existem entries, o freightValue é apenas o total agregado — evitar dupla contagem.
+      // Senão, usa o legacy freightValue (viagens criadas antes dos múltiplos fretes).
+      const freight = freightEntries.length > 0 ? freightFromEntries : (trip.freightValue || 0)
       const totalRevenues = freight + totalIncomes
       const profit = totalRevenues - totalExpenses
 
@@ -715,7 +719,15 @@ export const usePdfReports = () => {
 
         // Receitas
         const incomeRows: string[][] = []
-        if (freight > 0) {
+        if (freightEntries.length > 0) {
+          freightEntries.forEach((f: any, idx: number) => {
+            const routeParts = [f.origin, f.destination].filter(Boolean)
+            const route = routeParts.length ? routeParts.join(" → ") : ""
+            const descParts = [f.description, route].filter(Boolean)
+            const description = descParts.join(" · ") || `Frete ${idx + 1}`
+            incomeRows.push(["Frete", description, formatBRL(f.value || 0)])
+          })
+        } else if (freight > 0) {
           incomeRows.push(["Frete", "Valor do frete", formatBRL(freight)])
         }
         tripIncomes.forEach((t) => {
