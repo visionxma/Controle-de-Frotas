@@ -16,6 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Camera, Upload, Trash2, ImageIcon, X, AlertCircle } from "lucide-react"
 import type { TripPhoto } from "@/hooks/use-trips"
@@ -35,6 +45,7 @@ export function TripPhotoGallery({ tripId, photos = [], canEdit = true }: TripPh
   const [photoType, setPhotoType] = useState<"cargo" | "receipt" | "other">("other")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<TripPhoto | null>(null)
+  const [deletePhoto_, setDeletePhoto_] = useState<TripPhoto | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { uploadPhoto, deletePhoto, isUploading, error } = useTripPhotos()
@@ -82,8 +93,10 @@ export function TripPhotoGallery({ tripId, photos = [], canEdit = true }: TripPh
     }
   }
 
-  const handleDelete = async (photo: TripPhoto) => {
-    if (!confirm("Tem certeza que deseja excluir esta foto?")) return
+  const confirmDelete = async () => {
+    if (!deletePhoto_) return
+    const photo = deletePhoto_
+    setDeletePhoto_(null)
 
     const success = await deletePhoto(tripId, photo)
 
@@ -265,7 +278,7 @@ export function TripPhotoGallery({ tripId, photos = [], canEdit = true }: TripPh
                     size="sm"
                     variant="destructive"
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleDelete(photo)}
+                    onClick={() => setDeletePhoto_(photo)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

@@ -136,7 +136,7 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, onGenerat
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => onDelete(trip.id)}
+                  onClick={() => setDeleteId(trip.id)}
                   className="h-9 w-9 rounded-2xl p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -208,6 +208,32 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, onGenerat
           </CardContent>
         </Card>
       ))}
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent className="rounded-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta viagem?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados da viagem serão removidos e não poderão ser recuperados.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>A contagem de viagens, o total de KM rodados e as estatísticas do dashboard serão recalculados.</li>
+                  <li>Abastecimentos e fotos registrados nesta viagem também serão apagados.</li>
+                  <li>Transações (despesas/receitas) vinculadas à viagem <strong>não serão apagadas</strong>, mas perderão o vínculo com ela.</li>
+                  <li>O KM rodado e o combustível já somados ao caminhão <strong>não são revertidos</strong> — o odômetro e o total de litros do caminhão ficarão como estão.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Truck,
   User,
   MapPin,
@@ -27,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  DollarSign,
 } from "lucide-react"
 import type { Trip, TripProgressEntry, TripRefuelingEntry } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
@@ -34,6 +45,7 @@ import { useTransactions } from "@/hooks/use-transactions"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
 import { TripExpenseModal } from "@/components/trip-expense-modal"
 import { CityAutocomplete } from "@/components/city-autocomplete"
+import { CurrencyInput } from "@/components/currency-input"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { toast } from "sonner"
 
@@ -70,6 +82,14 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const [refuelStation, setRefuelStation] = useState("")
   const [isSavingRefuel, setIsSavingRefuel] = useState(false)
 
+  // Freight value edit state
+  const [freightValue, setFreightValue] = useState<number>(trip.freightValue || 0)
+  const [isSavingFreight, setIsSavingFreight] = useState(false)
+
+  // Confirmação de exclusão
+  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null)
+  const [deleteRefuelId, setDeleteRefuelId] = useState<string | null>(null)
+
   const refuelingEntries = trip.refuelingEntries || []
   const totalRefueled = refuelingEntries.reduce((sum, r) => sum + (r.liters || 0), 0)
 
@@ -81,14 +101,15 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!confirm("Deseja realmente excluir esta despesa?")) return
-    const success = await deleteTransaction(id)
+  const confirmDeleteExpense = async () => {
+    if (!deleteExpenseId) return
+    const success = await deleteTransaction(deleteExpenseId)
     if (success) {
       toast.success("Despesa removida")
     } else {
       toast.error("Erro ao remover despesa")
     }
+    setDeleteExpenseId(null)
   }
 
   const lastEntry = trip.progressEntries?.length
@@ -168,15 +189,39 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
     }
   }
 
-  const handleDeleteRefuel = async (id: string) => {
-    if (!confirm("Remover este abastecimento?")) return
+  const confirmDeleteRefuel = async () => {
+    if (!deleteRefuelId) return
     const success = await updateTrip(trip.id, {
-      refuelingEntries: refuelingEntries.filter((r) => r.id !== id),
+      refuelingEntries: refuelingEntries.filter((r) => r.id !== deleteRefuelId),
     } as any)
     if (success) {
       toast.success("Abastecimento removido")
     } else {
       toast.error("Erro ao remover abastecimento")
+    }
+    setDeleteRefuelId(null)
+  }
+
+  const handleSaveFreight = async () => {
+    if (freightValue < 0) {
+      toast.error("O valor do frete não pode ser negativo")
+      return
+    }
+
+    setIsSavingFreight(true)
+    try {
+      const success = await updateTrip(trip.id, {
+        freightValue: freightValue > 0 ? freightValue : undefined,
+      } as any)
+      if (success) {
+        toast.success("Valor do frete atualizado!")
+      } else {
+        toast.error("Erro ao atualizar valor do frete")
+      }
+    } catch {
+      toast.error("Erro ao atualizar valor do frete")
+    } finally {
+      setIsSavingFreight(false)
     }
   }
 
@@ -459,6 +504,62 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         </Card>
       )}
 
+      {/* Valor do Frete — apenas em andamento */}
+      {trip.status === "in_progress" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-500" />
+              Valor do Frete
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-500/20 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-green-700 dark:text-green-300 uppercase tracking-widest">
+                  Valor Atual do Frete
+                </p>
+                <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
+                  {trip.freightValue ? formatCurrency(trip.freightValue) : "Não informado"}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-4">
+              <p className="text-sm font-semibold">Editar Valor do Frete</p>
+              <div className="space-y-2">
+                <Label htmlFor="freight-value" className="text-xs font-bold text-muted-foreground uppercase">
+                  Valor Acordado (R$)
+                </Label>
+                <CurrencyInput
+                  id="freight-value"
+                  value={freightValue}
+                  onChange={setFreightValue}
+                  placeholder="Ex: 3.500,00"
+                />
+              </div>
+              <Button
+                onClick={handleSaveFreight}
+                disabled={isSavingFreight || freightValue === (trip.freightValue || 0)}
+                className="w-full sm:w-auto"
+              >
+                {isSavingFreight ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Salvar Valor do Frete
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Despesas da Viagem — apenas em andamento */}
       {trip.status === "in_progress" && (
         <Card>
@@ -524,7 +625,7 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleDeleteExpense(expense.id)}
+                          onClick={() => setDeleteExpenseId(expense.id)}
                           className="h-8 w-8 text-muted-foreground hover:text-red-500"
                           title="Excluir despesa"
                         >
@@ -614,7 +715,7 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => handleDeleteRefuel(entry.id)}
+                      onClick={() => setDeleteRefuelId(entry.id)}
                       className="h-8 w-8 text-muted-foreground hover:text-red-500"
                       title="Remover abastecimento"
                     >
@@ -762,6 +863,54 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
           </Button>
         </div>
       )}
+
+      <AlertDialog open={!!deleteExpenseId} onOpenChange={(open) => !open && setDeleteExpenseId(null)}>
+        <AlertDialogContent className="rounded-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta despesa?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> A despesa será removida e não poderá ser recuperada.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>O custo total desta viagem será recalculado.</li>
+                  <li>As despesas e o lucro do período no dashboard também serão atualizados.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteRefuelId} onOpenChange={(open) => !open && setDeleteRefuelId(null)}>
+        <AlertDialogContent className="rounded-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir este abastecimento?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> O registro do abastecimento será removido e não poderá ser recuperado.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>O total de litros abastecidos nesta viagem será reduzido, afetando o cálculo de consumo (km/L).</li>
+                  <li>O total de litros já contabilizado no caminhão <strong>não é revertido automaticamente</strong>.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRefuel} className="bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-xs h-10 px-6">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
