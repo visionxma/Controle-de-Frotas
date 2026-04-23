@@ -25,16 +25,18 @@ export function PlanBanner() {
     const dateLabel = graceUntil.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 
     return (
-      <div className="relative overflow-hidden rounded-sm bg-amber-500/10 border border-amber-500/30 text-amber-100 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-3">
+      <div className="relative overflow-hidden rounded-sm bg-amber-400 border-2 border-amber-600 shadow-xl shadow-amber-500/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-amber-500/20 border border-amber-500/30">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-amber-950 border-2 border-amber-900 shadow-md">
+              <AlertTriangle className="h-5 w-5 text-amber-300" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-black uppercase tracking-tight text-amber-300">Aguardando pagamento do boleto</span>
-              <span className="text-[11px] text-amber-200/80 font-medium">
-                Acesso liberado até <strong>{dateLabel}</strong> ({daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes). Após essa data, o sistema será bloqueado até a confirmação.
+              <span className="text-sm sm:text-base font-black uppercase tracking-tight text-amber-950">
+                Aguardando pagamento do boleto
+              </span>
+              <span className="text-xs sm:text-sm text-amber-950 font-semibold">
+                Acesso liberado até <strong className="underline decoration-2 underline-offset-2">{dateLabel}</strong> ({daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes). Após essa data, o sistema será bloqueado até a confirmação.
               </span>
             </div>
           </div>
