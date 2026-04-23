@@ -25,6 +25,7 @@ export interface Transaction {
   truckId?: string
   driverId?: string
   tripId?: string // Adicionado campo para associar transação a uma viagem
+  freightEntryId?: string // Linka esta transação a uma entrada específica no trip.freightEntries
   rentalId?: string // Adicionado campo para associar transação a uma locação
   supplierId?: string // Adicionado campo para associar despesa a um fornecedor (Empresas)
   itemName?: string // Nome do equipamento/item comprado (uso em compras de fornecedor)

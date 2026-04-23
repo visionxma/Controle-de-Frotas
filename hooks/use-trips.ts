@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDocs, writeBatch } from "firebase/firestore"
+import { ref, deleteObject } from "firebase/storage"
+import { db, storage } from "@/lib/firebase"
 import { useTrucks } from "./use-trucks"
 import { differenceInHours, differenceInDays } from "date-fns"
 
@@ -262,8 +263,37 @@ export function useTrips() {
 
   const deleteTrip = async (id: string) => {
     try {
-      const tripRef = doc(db, "trips", id)
-      await deleteDoc(tripRef)
+      // 1. Apaga as fotos do Firebase Storage (best-effort — se alguma falhar,
+      //    segue adiante, pois o doc da viagem e as transações têm prioridade).
+      const trip = trips.find((t) => t.id === id)
+      if (trip?.photos?.length) {
+        await Promise.all(
+          trip.photos.map(async (photo) => {
+            try {
+              const decodedUrl = decodeURIComponent(photo.url)
+              const pathMatch = decodedUrl.match(/\/o\/(.+?)\?/)
+              if (pathMatch) {
+                await deleteObject(ref(storage, pathMatch[1]))
+              }
+            } catch (err) {
+              console.warn(`[deleteTrip] Foto ${photo.id} não pôde ser removida do Storage:`, err)
+            }
+          }),
+        )
+      }
+
+      // 2. Busca todas as transações (despesas/receitas) vinculadas à viagem.
+      const txSnap = await getDocs(
+        query(collection(db, "transactions"), where("tripId", "==", id)),
+      )
+
+      // 3. Atômico: apaga todas as transações + o doc da viagem num único batch.
+      //    Se qualquer parte falhar, nada é apagado.
+      const batch = writeBatch(db)
+      txSnap.docs.forEach((txDoc) => batch.delete(txDoc.ref))
+      batch.delete(doc(db, "trips", id))
+      await batch.commit()
+
       return true
     } catch (error) {
       console.error("Erro ao deletar viagem:", error)

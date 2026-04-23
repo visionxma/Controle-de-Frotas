@@ -56,7 +56,7 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const { calculateTripDuration, updateTrip } = useTrips()
-  const { transactions, deleteTransaction } = useTransactions()
+  const { transactions, deleteTransaction, addTransaction } = useTransactions()
   const { generateSingleTripReport } = usePdfReports()
   const kmTraveled = trip.endKm ? trip.endKm - trip.startKm : 0
   const duration = calculateTripDuration(trip.startDate, trip.startTime, trip.endDate, trip.endTime)
@@ -259,6 +259,27 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
       } as any)
 
       if (success) {
+        // Replica o frete como uma transação de receita para refletir em tempo
+        // real no Financeiro e no Dashboard. O freightEntryId mantém o vínculo
+        // com a entrada dentro do trip para permitir remoção sincronizada.
+        const routeLabel = trimmedOrigin && trimmedDestination
+          ? `${trimmedOrigin} → ${trimmedDestination}`
+          : trimmedOrigin || trimmedDestination || ""
+        const descriptionParts = [trimmedDescription, routeLabel].filter(Boolean).join(" — ")
+        await addTransaction({
+          type: "receita",
+          description: descriptionParts
+            ? `Frete — ${descriptionParts}`
+            : `Frete da viagem #${trip.id.slice(-6)}`,
+          amount: newFreightValue,
+          date: new Date().toISOString().split("T")[0],
+          category: "frete",
+          tripId: trip.id,
+          truckId: trip.truckId,
+          driverId: trip.driverId,
+          freightEntryId: newEntry.id,
+        })
+
         toast.success("Frete adicionado!")
         setNewFreightValue(0)
         setNewFreightDescription("")
@@ -284,6 +305,14 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
       freightValue: updatedTotal,
     } as any)
     if (success) {
+      // Remove também a transação de receita linkada (se existir) para manter
+      // Financeiro e Dashboard consistentes com a lista de fretes da viagem.
+      const linkedTx = transactions.find(
+        (t) => t.freightEntryId === deleteFreightId,
+      )
+      if (linkedTx) {
+        await deleteTransaction(linkedTx.id)
+      }
       toast.success("Frete removido")
     } else {
       toast.error("Erro ao remover frete")

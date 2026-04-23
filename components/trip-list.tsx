@@ -215,13 +215,16 @@ export function TripList({ trips, onComplete, onDelete, onViewDetails, onGenerat
             <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta viagem?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-foreground/80 font-medium space-y-2">
-                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados da viagem serão removidos e não poderão ser recuperados.</p>
-                <p className="text-sm"><strong>O que muda:</strong></p>
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> A viagem e tudo o que está vinculado a ela serão apagados em cascata.</p>
+                <p className="text-sm"><strong>O que será apagado:</strong></p>
                 <ul className="text-sm list-disc pl-5 space-y-1">
-                  <li>A contagem de viagens, o total de KM rodados e as estatísticas do dashboard serão recalculados.</li>
-                  <li>Abastecimentos e fotos registrados nesta viagem também serão apagados.</li>
-                  <li>Transações (despesas/receitas) vinculadas à viagem <strong>não serão apagadas</strong>, mas perderão o vínculo com ela.</li>
-                  <li>O KM rodado e o combustível já somados ao caminhão <strong>não são revertidos</strong> — o odômetro e o total de litros do caminhão ficarão como estão.</li>
+                  <li>Todos os <strong>fretes, abastecimentos e fotos</strong> registrados nesta viagem.</li>
+                  <li>Todas as <strong>despesas e receitas</strong> vinculadas à viagem — elas deixam de aparecer no Financeiro e os totais do Dashboard (receita, despesa, lucro) são recalculados imediatamente.</li>
+                  <li>As fotos hospedadas no servidor também são removidas.</li>
+                </ul>
+                <p className="text-sm"><strong>O que NÃO muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>O odômetro e o total de litros já contabilizados no caminhão <strong>não são revertidos</strong> — representam leituras físicas e continuam como estão.</li>
                 </ul>
               </div>
             </AlertDialogDescription>
