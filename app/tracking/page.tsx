@@ -13,6 +13,9 @@ import {
   Loader2,
   AlertTriangle,
   Plug,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react"
 
 interface Integration {
@@ -193,6 +196,9 @@ function IntegrationFrame({
 }) {
   const [loading, setLoading] = useState(true)
   const [blocked, setBlocked] = useState(false)
+  // Zoom default 0.8 faz o conteúdo do BuscarSat caber na largura do container
+  // sem precisar scrollar horizontalmente (o site é desktop-first, 1280px+).
+  const [zoom, setZoom] = useState(0.8)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   // Se o iframe não disparar `onLoad` em 6 segundos, assumimos que foi bloqueado
@@ -203,6 +209,14 @@ function IntegrationFrame({
     }, 6000)
     return () => clearTimeout(timer)
   }, [loading])
+
+  const zoomIn = () => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))
+  const zoomOut = () => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))
+  const zoomReset = () => setZoom(0.8)
+  // Largura/altura compensadas: iframe renderiza maior que o container e é
+  // escalado para caber. 1/0.8 = 125%, então o iframe tem 125% e scale 0.8
+  // resulta em 100% visual sem barra horizontal.
+  const compensated = `${(100 / zoom).toFixed(2)}%`
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] -m-4 sm:-m-6 lg:-m-10">
@@ -230,19 +244,60 @@ function IntegrationFrame({
             </div>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => window.open(integration.url, "_blank", "noopener,noreferrer")}
-          className="shrink-0"
-        >
-          <ExternalLink className="h-4 w-4 mr-1" />
-          <span className="hidden sm:inline">Abrir em nova aba</span>
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Controles de zoom */}
+          <div className="hidden sm:flex items-center gap-0.5 border rounded-md p-0.5 bg-background/50">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={zoomOut}
+              disabled={zoom <= 0.5}
+              className="h-7 w-7 p-0"
+              title="Diminuir zoom"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <button
+              onClick={zoomReset}
+              className="text-[11px] font-bold text-muted-foreground hover:text-foreground px-2 min-w-[42px] text-center"
+              title="Restaurar zoom (80%)"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={zoomIn}
+              disabled={zoom >= 1.5}
+              className="h-7 w-7 p-0"
+              title="Aumentar zoom"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={zoomReset}
+              className="h-7 w-7 p-0"
+              title="Restaurar padrão"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(integration.url, "_blank", "noopener,noreferrer")}
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Abrir em nova aba</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Conteúdo do iframe */}
-      <div className="flex-1 relative bg-muted/30">
+      {/* Conteúdo do iframe — overflow-hidden para esconder o excesso
+          gerado pelo scale compensado, evitando scroll horizontal na página */}
+      <div className="flex-1 relative bg-muted/30 overflow-hidden">
         {loading && !blocked && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm z-10">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -295,9 +350,15 @@ function IntegrationFrame({
         <iframe
           ref={iframeRef}
           src={integration.url}
-          className="w-full h-full border-0"
           title={integration.name}
           onLoad={() => setLoading(false)}
+          className="border-0 block"
+          style={{
+            width: compensated,
+            height: compensated,
+            transform: `scale(${zoom})`,
+            transformOrigin: "0 0",
+          }}
           // sandbox deixa scripts/forms funcionarem mas isola o contexto
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
           referrerPolicy="no-referrer-when-downgrade"
