@@ -33,6 +33,7 @@ import { useTrips } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
 import { TripExpenseModal } from "@/components/trip-expense-modal"
+import { CityAutocomplete } from "@/components/city-autocomplete"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { toast } from "sonner"
 
@@ -433,13 +434,10 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                   <Label htmlFor="progress-city" className="text-xs font-bold text-muted-foreground uppercase">
                     Cidade Atual
                   </Label>
-                  <Input
-                    id="progress-city"
-                    type="text"
-                    placeholder="Ex: São Paulo"
+                  <CityAutocomplete
                     value={progressCity}
-                    onChange={(e) => setProgressCity(e.target.value)}
-                    disabled={isSavingProgress}
+                    onChange={setProgressCity}
+                    placeholder="Ex: São Paulo"
                   />
                 </div>
               </div>

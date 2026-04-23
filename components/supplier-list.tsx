@@ -202,11 +202,17 @@ export function SupplierList({ suppliers, onEdit, onDelete, isLoading }: Supplie
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">
-              Confirmar exclusão de fornecedor
+              Tem certeza que deseja excluir esta empresa?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground/80 font-medium">
-              As compras já registradas como despesas no Financeiro <strong>não serão excluídas</strong>, mas perderão o vínculo com este fornecedor.{" "}
-              <span className="font-bold text-red-600">Esta ação é irreversível.</span>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados da empresa/fornecedor serão removidos e não poderão ser recuperados.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>Transações já registradas com esta empresa <strong>não serão apagadas</strong>, mas perderão o vínculo — no Financeiro, essas transações ficarão sem identificação de fornecedor.</li>
+                  <li>Os totais financeiros do dashboard <strong>não mudam</strong> (as transações permanecem).</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

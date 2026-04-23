@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { validateCPF, formatCPF, formatPhone, validateEmail, fetchCEP, formatCEP } from "@/lib/utils-validation"
-import { CheckCircle2, Search, Loader2, Percent, Shield } from "lucide-react"
+import { validateCPF, formatCPF, formatPhone, validateEmail } from "@/lib/utils-validation"
+import { CheckCircle2, Loader2, Percent, Shield } from "lucide-react"
 import type { Driver } from "@/hooks/use-drivers"
 import { DEFAULT_DRIVER_PERMISSIONS, type DriverPermissions } from "@/hooks/use-drivers"
 import { useToast } from "@/hooks/use-toast"
+import { CepAutocomplete, type CepData } from "@/components/cep-autocomplete"
 
 interface DriverFormProps {
   driver?: Driver
@@ -46,7 +47,6 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [validFields, setValidFields] = useState<Record<string, boolean>>({})
-  const [isValidatingCEP, setIsValidatingCEP] = useState(false)
 
   const validateField = (name: string, value: string) => {
     let error = ""
@@ -84,31 +84,20 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
     return isValid
   }
 
-  const handleCEPBlur = async () => {
-    const cleanCEP = formData.cep.replace(/\D/g, "")
-    if (cleanCEP.length !== 8) return
+  const handleCepResolved = (data: CepData) => {
+    const fullAddress = `${data.street || ""}, ${data.neighborhood || ""}, ${data.city || ""} - ${data.state || ""}`
+    setFormData((prev) => ({ ...prev, address: fullAddress }))
+    setErrors((prev) => ({ ...prev, cep: "" }))
+    setValidFields((prev) => ({ ...prev, cep: true, address: true }))
+    toast({
+      title: "Sucesso!",
+      description: "Endereço localizado pelo CEP.",
+    })
+  }
 
-    setIsValidatingCEP(true)
-    const data = await fetchCEP(cleanCEP)
-    
-    if (data) {
-      const fullAddress = `${data.street || ""}, ${data.neighborhood || ""}, ${data.city || ""} - ${data.state || ""}`
-      setFormData(prev => ({ ...prev, address: fullAddress }))
-      setValidFields(prev => ({ ...prev, cep: true, address: true }))
-      toast({
-        title: "Sucesso!",
-        description: "Endereço localizado pelo CEP.",
-      })
-    } else {
-      setErrors(prev => ({ ...prev, cep: "CEP não encontrado" }))
-      setValidFields(prev => ({ ...prev, cep: false }))
-      toast({
-        title: "Atenção",
-        description: "CEP não encontrado. Verifique os números.",
-        variant: "destructive",
-      })
-    }
-    setIsValidatingCEP(false)
+  const handleCepNotFound = () => {
+    setErrors((prev) => ({ ...prev, cep: "CEP não encontrado" }))
+    setValidFields((prev) => ({ ...prev, cep: false }))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -303,26 +292,14 @@ export function DriverForm({ driver, onSubmit, onCancel, isLoading }: DriverForm
               <Label htmlFor="cep" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
                 CEP (Localizar Endereço)
               </Label>
-              <div className="relative">
-                <Input
-                  id="cep"
-                  placeholder="00000-000"
-                  value={formData.cep}
-                  onChange={(e) => handleChange("cep", formatCEP(e.target.value))}
-                  onBlur={handleCEPBlur}
-                  className={getInputClass("cep")}
-                  maxLength={9}
-                />
-                <div className="absolute right-3 top-3">
-                  {isValidatingCEP ? (
-                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                  ) : validFields.cep ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <Search className="h-4 w-4 text-muted-foreground/30" />
-                  )}
-                </div>
-              </div>
+              <CepAutocomplete
+                id="cep"
+                value={formData.cep}
+                onChange={(v) => setFormData((prev) => ({ ...prev, cep: v }))}
+                onResolved={handleCepResolved}
+                onNotFound={handleCepNotFound}
+                error={errors.cep}
+              />
               {errors.cep && <p className="text-[10px] font-bold text-red-500 uppercase tracking-tight ml-1 animate-in slide-in-from-top-1">{errors.cep}</p>}
             </div>
 

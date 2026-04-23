@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { validateCNPJ, formatCNPJ, formatPhone, validateEmail, fetchCEP, formatCEP, fetchCNPJ } from "@/lib/utils-validation"
+import { validateCNPJ, formatCNPJ, formatPhone, validateEmail, formatCEP, fetchCNPJ } from "@/lib/utils-validation"
 import { CheckCircle2, Search, Loader2, Building2, Sparkles, Info } from "lucide-react"
 import type { Supplier } from "@/hooks/use-suppliers"
 import { useToast } from "@/hooks/use-toast"
+import { CepAutocomplete, type CepData } from "@/components/cep-autocomplete"
+import { CityAutocomplete } from "@/components/city-autocomplete"
 
 interface SupplierFormProps {
   supplier?: Supplier
@@ -52,7 +54,6 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isLoading }: Suppli
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [validFields, setValidFields] = useState<Record<string, boolean>>({})
-  const [isValidatingCEP, setIsValidatingCEP] = useState(false)
   const [isFetchingCNPJ, setIsFetchingCNPJ] = useState(false)
   const [cnpjAutoFilled, setCnpjAutoFilled] = useState(false)
 
@@ -92,36 +93,25 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isLoading }: Suppli
     return isValid
   }
 
-  const handleCEPBlur = async () => {
-    const cleanCEP = formData.cep.replace(/\D/g, "")
-    if (cleanCEP.length !== 8) return
+  const handleCepResolved = (data: CepData) => {
+    const fullAddress = `${data.street || ""}, ${data.neighborhood || ""}`
+    setFormData((prev) => ({
+      ...prev,
+      address: fullAddress,
+      city: data.city || prev.city,
+      state: data.state || prev.state,
+    }))
+    setErrors((prev) => ({ ...prev, cep: "" }))
+    setValidFields((prev) => ({ ...prev, cep: true, address: true }))
+    toast({
+      title: "Sucesso!",
+      description: "Endereço localizado pelo CEP.",
+    })
+  }
 
-    setIsValidatingCEP(true)
-    const data = await fetchCEP(cleanCEP)
-
-    if (data) {
-      const fullAddress = `${data.street || ""}, ${data.neighborhood || ""}`
-      setFormData((prev) => ({
-        ...prev,
-        address: fullAddress,
-        city: data.city || prev.city,
-        state: data.state || prev.state,
-      }))
-      setValidFields((prev) => ({ ...prev, cep: true, address: true }))
-      toast({
-        title: "Sucesso!",
-        description: "Endereço localizado pelo CEP.",
-      })
-    } else {
-      setErrors((prev) => ({ ...prev, cep: "CEP não encontrado" }))
-      setValidFields((prev) => ({ ...prev, cep: false }))
-      toast({
-        title: "Atenção",
-        description: "CEP não encontrado. Verifique os números.",
-        variant: "destructive",
-      })
-    }
-    setIsValidatingCEP(false)
+  const handleCepNotFound = () => {
+    setErrors((prev) => ({ ...prev, cep: "CEP não encontrado" }))
+    setValidFields((prev) => ({ ...prev, cep: false }))
   }
 
   const handleCNPJBlur = async () => {
@@ -466,26 +456,14 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isLoading }: Suppli
               <Label htmlFor="cep" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
                 CEP (Localizar Endereço)
               </Label>
-              <div className="relative">
-                <Input
-                  id="cep"
-                  placeholder="00000-000"
-                  value={formData.cep}
-                  onChange={(e) => handleChange("cep", formatCEP(e.target.value))}
-                  onBlur={handleCEPBlur}
-                  className={getInputClass("cep")}
-                  maxLength={9}
-                />
-                <div className="absolute right-3 top-3">
-                  {isValidatingCEP ? (
-                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                  ) : validFields.cep ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <Search className="h-4 w-4 text-muted-foreground/30" />
-                  )}
-                </div>
-              </div>
+              <CepAutocomplete
+                id="cep"
+                value={formData.cep}
+                onChange={(v) => setFormData((prev) => ({ ...prev, cep: v }))}
+                onResolved={handleCepResolved}
+                onNotFound={handleCepNotFound}
+                error={errors.cep}
+              />
               {errors.cep && <p className="text-[10px] font-bold text-red-500 uppercase tracking-tight ml-1">{errors.cep}</p>}
             </div>
 
@@ -494,12 +472,21 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isLoading }: Suppli
                 Cidade / UF
               </Label>
               <div className="flex gap-2">
-                <Input
-                  id="city"
-                  placeholder="Cidade"
+                <CityAutocomplete
                   value={formData.city}
-                  onChange={(e) => handleChange("city", e.target.value)}
-                  className={getInputClass("city")}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, city: v }))}
+                  onSelectCity={(c) =>
+                    setFormData((prev) => ({ ...prev, city: c.nome, state: c.estado }))
+                  }
+                  formatValue={(c) => c.nome}
+                  placeholder="Cidade"
+                  className={cn(
+                    errors.city
+                      ? "border-red-500 bg-red-50/5"
+                      : validFields.city
+                        ? "border-emerald-500/40 bg-emerald-500/5"
+                        : "",
+                  )}
                 />
                 <Input
                   id="state"

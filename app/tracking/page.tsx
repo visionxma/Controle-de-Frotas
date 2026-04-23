@@ -36,21 +36,48 @@ const INTEGRATIONS: Integration[] = [
   },
 ]
 
+const LAST_PANEL_KEY = "tracking:last-panel"
+
 export default function TrackingPage() {
   const [selected, setSelected] = useState<Integration | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    try {
+      const savedId = localStorage.getItem(LAST_PANEL_KEY)
+      if (savedId) {
+        const found = INTEGRATIONS.find(
+          (i) => i.id === savedId && i.status === "active",
+        )
+        if (found) setSelected(found)
+      }
+    } catch {}
+    setHydrated(true)
+  }, [])
+
+  const handleSelect = (integration: Integration) => {
+    try {
+      localStorage.setItem(LAST_PANEL_KEY, integration.id)
+    } catch {}
+    setSelected(integration)
+  }
+
+  const handleBack = () => {
+    try {
+      localStorage.removeItem(LAST_PANEL_KEY)
+    } catch {}
+    setSelected(null)
+  }
 
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        {selected ? (
-          <IntegrationFrame
-            integration={selected}
-            onBack={() => setSelected(null)}
-          />
+        {!hydrated ? null : selected ? (
+          <IntegrationFrame integration={selected} onBack={handleBack} />
         ) : (
           <IntegrationGrid
             integrations={INTEGRATIONS}
-            onSelect={setSelected}
+            onSelect={handleSelect}
           />
         )}
       </DashboardLayout>
@@ -145,7 +172,9 @@ function IntegrationGrid({
       <p className="text-center text-xs text-muted-foreground mt-8">
         Precisa de outra integração?{" "}
         <a
-          href="mailto:suporte@frox.com.br"
+          href="https://wa.me/559998468091"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-primary font-bold hover:underline"
         >
           Solicite aqui

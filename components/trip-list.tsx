@@ -1,8 +1,19 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { MapPin, Truck, User, Trash2, CheckCircle, DollarSign, Weight, Fuel, FileText } from "lucide-react"
 import { RegisteredBy } from "./registered-by"
 import type { Trip } from "@/hooks/use-trips"
@@ -17,6 +28,15 @@ interface TripListProps {
 }
 
 export function TripList({ trips, onComplete, onDelete, onViewDetails, onGenerateReport, isLoading }: TripListProps) {
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  const handleConfirmDelete = () => {
+    if (deleteId) {
+      onDelete(deleteId)
+      setDeleteId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">

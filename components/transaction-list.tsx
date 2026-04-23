@@ -313,9 +313,16 @@ export function TransactionList({ transactions, onEdit, onDelete, isLoading }: T
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta transação?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados da transação serão removidos e não poderão ser recuperados.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>Os totais de <strong>receita, despesa e lucro</strong> do período no dashboard serão recalculados.</li>
+                  <li>Se a transação estiver vinculada a uma viagem, o custo/receita dessa viagem também mudará.</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

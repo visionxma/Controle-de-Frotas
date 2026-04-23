@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
-import { Search, MapPin, Loader2 } from "lucide-react"
+import { MapPin, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface City {
@@ -14,17 +14,30 @@ interface City {
 interface CityAutocompleteProps {
   value: string
   onChange: (value: string) => void
+  onSelectCity?: (city: { nome: string; estado: string }) => void
   placeholder?: string
   className?: string
   error?: string
+  formatValue?: (city: City) => string
 }
 
-export function CityAutocomplete({ value, onChange, placeholder, className, error }: CityAutocompleteProps) {
+export function CityAutocomplete({
+  value,
+  onChange,
+  onSelectCity,
+  placeholder,
+  className,
+  error,
+  formatValue,
+}: CityAutocompleteProps) {
   const [searchTerm, setSearchTerm] = useState(value)
   const [suggestions, setSuggestions] = useState<City[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cacheRef = useRef<Map<string, City[]>>(new Map())
+  const lastQueryRef = useRef<string>("")
 
   useEffect(() => {
     setSearchTerm(value)
@@ -40,24 +53,46 @@ export function CityAutocomplete({ value, onChange, placeholder, className, erro
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
   const searchCities = async (name: string) => {
-    if (name.length < 3) {
+    const query = name.trim()
+    if (query.length < 2) {
       setSuggestions([])
+      setIsOpen(false)
+      return
+    }
+
+    const cached = cacheRef.current.get(query.toLowerCase())
+    if (cached) {
+      setSuggestions(cached)
+      setIsOpen(cached.length > 0)
       return
     }
 
     setIsLoading(true)
+    lastQueryRef.current = query
     try {
-      const response = await fetch(`https://brasilapi.com.br/api/cptec/v1/cidade/${encodeURIComponent(name)}`)
+      const response = await fetch(`https://brasilapi.com.br/api/cptec/v1/cidade/${encodeURIComponent(query)}`)
+      if (lastQueryRef.current !== query) return
       if (response.ok) {
         const data = await response.json()
-        setSuggestions(Array.isArray(data) ? data : [])
-        setIsOpen(true)
+        const list: City[] = Array.isArray(data) ? data.slice(0, 30) : []
+        cacheRef.current.set(query.toLowerCase(), list)
+        setSuggestions(list)
+        setIsOpen(list.length > 0)
+      } else {
+        setSuggestions([])
       }
-    } catch (error) {
-      console.error("Error fetching cities:", error)
+    } catch (err) {
+      console.error("Error fetching cities:", err)
+      setSuggestions([])
     } finally {
-      setIsLoading(false)
+      if (lastQueryRef.current === query) setIsLoading(false)
     }
   }
 
@@ -65,15 +100,20 @@ export function CityAutocomplete({ value, onChange, placeholder, className, erro
     const val = e.target.value
     setSearchTerm(val)
     onChange(val)
-    
-    const timeoutId = setTimeout(() => searchCities(val), 500)
-    return () => clearTimeout(timeoutId)
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => searchCities(val), 250)
+  }
+
+  const handleFocus = () => {
+    if (suggestions.length > 0) setIsOpen(true)
   }
 
   const handleSelect = (city: City) => {
-    const formatted = `${city.nome} - ${city.estado}`
+    const formatted = formatValue ? formatValue(city) : `${city.nome} - ${city.estado}`
     setSearchTerm(formatted)
     onChange(formatted)
+    onSelectCity?.({ nome: city.nome, estado: city.estado })
     setIsOpen(false)
   }
 
@@ -83,11 +123,13 @@ export function CityAutocomplete({ value, onChange, placeholder, className, erro
         <Input
           value={searchTerm}
           onChange={handleInputChange}
-          placeholder={placeholder || "Pesquisar cidade..."}
+          onFocus={handleFocus}
+          placeholder={placeholder || "Comece a digitar a cidade..."}
+          autoComplete="off"
           className={cn(
             "pr-10 h-11 transition-all duration-300 rounded-sm italic font-medium",
             error ? "border-red-500 bg-red-50/5" : "border-border/40 focus-visible:ring-primary/20",
-            className
+            className,
           )}
         />
         <div className="absolute right-3 top-3">

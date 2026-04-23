@@ -248,9 +248,16 @@ export function DriverList({ drivers, onEdit, onDelete, isLoading }: DriverListP
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Confirmar exclusão de motorista</AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground/80 font-medium">
-              Ao excluir este motorista, todos os registros históricos de viagens e documentos associados a ele serão perdidos. <span className="font-bold text-red-600">Esta ação é irreversível e os dados não poderão ser recuperados.</span>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir este motorista?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados do motorista serão removidos e não poderão ser recuperados.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>A contagem de motoristas no dashboard será reduzida.</li>
+                  <li>Viagens já registradas com este motorista <strong>não serão apagadas</strong>, mas perderão o vínculo — deixarão de aparecer ao filtrar por motorista.</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -221,9 +221,16 @@ export function TruckList({ trucks, onEdit, onDelete, isLoading }: TruckListProp
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Confirmar exclusão de caminhão</AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground/80 font-medium">
-              Ao excluir este caminhão, você perderá permanentemente o acesso a todo o seu histórico de viagens, consumo de combustível e registros financeiros associados. <span className="font-bold text-red-600">Esta ação é irreversível.</span>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir este caminhão?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-foreground/80 font-medium space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> Os dados do caminhão serão removidos e não poderão ser recuperados.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>A contagem de caminhões no dashboard e no seu plano será reduzida.</li>
+                  <li>Viagens, abastecimentos, despesas fixas e transações já registradas com este caminhão <strong>não serão apagadas</strong>, mas perderão o vínculo — não aparecerão mais ao filtrar por caminhão e podem ficar sem identificação.</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

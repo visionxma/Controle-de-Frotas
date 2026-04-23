@@ -426,9 +426,16 @@ export function FixedExpensesCard() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover despesa fixa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação remove o registro da despesa fixa. As transações já lançadas não são afetadas.
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-red-600">Tem certeza que deseja excluir esta despesa fixa?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p><span className="font-bold text-red-600">Esta ação é permanente e não pode ser desfeita.</span> O registro da despesa fixa será removido e não poderá ser recuperado.</p>
+                <p className="text-sm"><strong>O que muda:</strong></p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  <li>O total de <strong>despesas fixas mensais</strong> no dashboard será reduzido, afetando a margem de lucro calculada.</li>
+                  <li>Transações já lançadas referentes a essa despesa <strong>não são apagadas</strong> — continuam no Financeiro normalmente.</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
