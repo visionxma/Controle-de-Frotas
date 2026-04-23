@@ -366,22 +366,29 @@ function IntegrationFrame({
           </div>
         )}
 
-        <iframe
-          ref={iframeRef}
-          src={integration.url}
-          title={integration.name}
-          onLoad={() => setLoading(false)}
-          className="border-0 block"
+        {/* Wrapper do iframe recebe o transform (mais confiável que aplicar
+            direto no <iframe>). Ele fica 1/zoom de tamanho e é escalado pelo
+            zoom, resultando em 100% visual dentro do container pai. */}
+        <div
+          className="absolute top-0 left-0"
           style={{
             width: compensated,
             height: compensated,
             transform: `scale(${zoom})`,
             transformOrigin: "0 0",
           }}
-          // sandbox deixa scripts/forms funcionarem mas isola o contexto
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        >
+          <iframe
+            ref={iframeRef}
+            src={integration.url}
+            title={integration.name}
+            onLoad={() => setLoading(false)}
+            className="w-full h-full border-0 block"
+            // sandbox deixa scripts/forms funcionarem mas isola o contexto
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
       </div>
     </div>
   )
