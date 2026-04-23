@@ -720,7 +720,7 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
               </div>
               <Button
                 onClick={handleAddFreight}
-                disabled={isSavingFreight || newFreightValue <= 0}
+                disabled={isSavingFreight}
                 className="w-full sm:w-auto"
               >
                 {isSavingFreight ? (

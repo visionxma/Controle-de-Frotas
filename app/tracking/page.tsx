@@ -26,6 +26,8 @@ interface Integration {
   status: "active" | "available" | "coming_soon"
   // Cor do tema da marca (opcional)
   accent?: string
+  // URL da logomarca oficial (opcional — usa ícone Plug como fallback)
+  logo?: string
 }
 
 const INTEGRATIONS: Integration[] = [
@@ -36,6 +38,7 @@ const INTEGRATIONS: Integration[] = [
     url: "https://buscarsat.softruck.com/access/login",
     status: "active",
     accent: "from-blue-500 to-cyan-500",
+    logo: "https://media-api.softruck.com/enterprises/cb3a298d-541f-453f-a754-8a719bb548e3/1684764528632-02362cec-7dd4-431f-b58f-1bb55c0c4acb_BuscarSatmonitoramento_preto.png",
   },
 ]
 
@@ -128,8 +131,16 @@ function IntegrationGrid({
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted border group-hover:scale-110 transition-transform">
-                    <Plug className="h-6 w-6 text-primary" />
+                  <div className="flex h-12 w-20 shrink-0 items-center justify-center rounded-lg bg-white border p-1.5 group-hover:scale-105 transition-transform overflow-hidden">
+                    {integration.logo ? (
+                      <img
+                        src={integration.logo}
+                        alt={integration.name}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <Plug className="h-6 w-6 text-primary" />
+                    )}
                   </div>
                   <div>
                     <CardTitle className="text-lg">{integration.name}</CardTitle>
@@ -233,8 +244,16 @@ function IntegrationFrame({
             Voltar
           </Button>
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-primary/10 border border-primary/20 shrink-0">
-              <Plug className="h-3.5 w-3.5 text-primary" />
+            <div className="flex h-7 w-14 items-center justify-center rounded bg-white border border-border/40 p-1 shrink-0 overflow-hidden">
+              {integration.logo ? (
+                <img
+                  src={integration.logo}
+                  alt={integration.name}
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <Plug className="h-3.5 w-3.5 text-primary" />
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold truncate">{integration.name}</p>
