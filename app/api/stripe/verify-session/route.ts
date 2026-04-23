@@ -34,18 +34,6 @@ export async function GET(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
-    // Pagamento não aprovado — informa o cliente sem ativar nada
-    const paymentOk =
-      session.payment_status === "paid" ||
-      session.payment_status === "no_payment_required"
-
-    if (!paymentOk) {
-      return NextResponse.json({
-        activated: false,
-        payment_status: session.payment_status,
-      })
-    }
-
     const userId = session.metadata?.userId
     if (!userId) {
       console.error("[verify-session] Sessão sem userId nos metadados:", sessionId)
@@ -53,9 +41,45 @@ export async function GET(request: NextRequest) {
     }
 
     const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
-
-    // Ativa a assinatura no Firestore
     const db = getAdminDb()
+
+    const paymentOk =
+      session.payment_status === "paid" ||
+      session.payment_status === "no_payment_required"
+
+    // Boleto/pix pendente — libera 5 dias de acesso ao sistema enquanto
+    // aguarda compensação. Idempotente com o webhook checkout.session.completed.
+    if (!paymentOk) {
+      const BOLETO_GRACE_DAYS = 5
+      const graceUntil = new Date(Date.now() + BOLETO_GRACE_DAYS * 24 * 60 * 60 * 1000)
+
+      await db
+        .collection("users")
+        .doc(userId)
+        .set(
+          {
+            subscription_status: "incomplete",
+            plan_type: "frotas",
+            max_trucks: maxTrucks > 0 ? maxTrucks : null,
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+            pending_boleto_until: graceUntil,
+          },
+          { merge: true },
+        )
+
+      console.log(
+        `[verify-session] Boleto pendente — userId=${userId}, acesso liberado até ${graceUntil.toISOString()}`,
+      )
+
+      return NextResponse.json({
+        activated: true,
+        pending_boleto: true,
+        pending_boleto_until: graceUntil.toISOString(),
+        payment_status: session.payment_status,
+      })
+    }
+
     await db
       .collection("users")
       .doc(userId)
@@ -66,6 +90,7 @@ export async function GET(request: NextRequest) {
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
+          pending_boleto_until: null,
         },
         { merge: true },
       )

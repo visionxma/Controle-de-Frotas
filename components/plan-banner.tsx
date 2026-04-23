@@ -5,7 +5,7 @@ import { useTrucks } from "@/hooks/use-trucks"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Sparkles, Zap, RefreshCw } from "lucide-react"
+import { Sparkles, Zap, RefreshCw, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { getPricePerTruck } from "@/lib/stripe"
 
@@ -13,7 +13,37 @@ export function PlanBanner() {
   const { user } = useAuth()
   const { trucks } = useTrucks()
 
-  if (!user || user.subscription_status !== "active") return null
+  if (!user) return null
+
+  // Grace period do boleto: exibe aviso com data limite e CTA para pagar.
+  const graceUntil = user.pending_boleto_until
+  const hasBoletoGrace =
+    !!graceUntil && graceUntil.getTime() > Date.now() && user.subscription_status !== "active"
+
+  if (hasBoletoGrace && graceUntil) {
+    const daysLeft = Math.max(0, Math.ceil((graceUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    const dateLabel = graceUntil.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+
+    return (
+      <div className="relative overflow-hidden rounded-sm bg-amber-500/10 border border-amber-500/30 text-amber-100 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-amber-500/20 border border-amber-500/30">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-black uppercase tracking-tight text-amber-300">Aguardando pagamento do boleto</span>
+              <span className="text-[11px] text-amber-200/80 font-medium">
+                Acesso liberado até <strong>{dateLabel}</strong> ({daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes). Após essa data, o sistema será bloqueado até a confirmação.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (user.subscription_status !== "active") return null
 
   const usedTrucks = trucks.length
   const maxTrucks = Math.max(user.max_trucks || usedTrucks, usedTrucks)

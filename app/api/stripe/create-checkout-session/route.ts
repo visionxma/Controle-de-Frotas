@@ -73,6 +73,14 @@ export async function POST(request: NextRequest) {
 
       allow_promotion_codes: true,
 
+      payment_method_types: ["card", "boleto"],
+      payment_method_options: {
+        // Alinhado com a janela de 5 dias de acesso ao sistema após geração
+        // do boleto. Passado esse prazo, a subscription vira incomplete_expired
+        // no Stripe e o ProtectedRoute bloqueia o usuário.
+        boleto: { expires_after_days: 5 },
+      },
+
       success_url: `${appUrl}/plans/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/plans`,
 

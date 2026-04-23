@@ -35,10 +35,14 @@ interface User {
   // Assinatura Stripe
   plan_type?: "basic" | "custom" | "frotas" | null
   max_trucks?: number | null
-  subscription_status?: "active" | "inactive" | "past_due" | "canceled" | null
+  subscription_status?: "active" | "inactive" | "past_due" | "canceled" | "incomplete" | "incomplete_expired" | null
   stripe_customer_id?: string | null
   stripe_subscription_id?: string | null
   onboarding_completed?: boolean
+  // Boleto/pix: janela de 5 dias de acesso após geração do boleto.
+  // Enquanto essa data é futura, ProtectedRoute libera o sistema
+  // mesmo com subscription_status !== "active".
+  pending_boleto_until?: Date | null
 }
 
 interface AuthContextType {
@@ -100,6 +104,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
               }
 
+              // Firestore Timestamps vs Date: toDate() quando vier do snapshot.
+              const rawGraceUntil = userData.pending_boleto_until
+              const pendingBoletoUntil =
+                rawGraceUntil && typeof rawGraceUntil.toDate === "function"
+                  ? rawGraceUntil.toDate()
+                  : rawGraceUntil instanceof Date
+                    ? rawGraceUntil
+                    : null
+
               setUser({
                 id: firebaseUser.uid,
                 name: userData.name || firebaseUser.displayName || "",
@@ -118,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 stripe_customer_id: userData.stripe_customer_id ?? null,
                 stripe_subscription_id: userData.stripe_subscription_id ?? null,
                 onboarding_completed: userData.onboarding_completed ?? false,
+                pending_boleto_until: pendingBoletoUntil,
               })
 
               // Se a assinatura está ativa mas max_trucks não foi gravado (ex: webhook atrasado),

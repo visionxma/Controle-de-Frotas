@@ -14,6 +14,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading, isAuthenticating } = useAuth()
   const router = useRouter()
 
+  // Acesso durante grace de 5 dias do boleto: pending_boleto_until no futuro
+  // libera o sistema mesmo com subscription_status === "incomplete".
+  const hasBoletoGrace =
+    !!user?.pending_boleto_until && user.pending_boleto_until.getTime() > Date.now()
+  const canAccess = user?.subscription_status === "active" || hasBoletoGrace
+
   useEffect(() => {
     if (isLoading || isAuthenticating) return
 
@@ -27,11 +33,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return
     }
 
-    // Redireciona para escolha de plano se não tiver assinatura ativa
-    if (user.subscription_status !== "active") {
+    if (!canAccess) {
       router.push("/plans")
     }
-  }, [user, isLoading, isAuthenticating, router])
+  }, [user, isLoading, isAuthenticating, router, canAccess])
 
   if (isLoading || isAuthenticating) {
     return (
@@ -44,7 +49,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (!user || user.role !== "admin" || user.subscription_status !== "active") {
+  if (!user || user.role !== "admin" || !canAccess) {
     return null
   }
 

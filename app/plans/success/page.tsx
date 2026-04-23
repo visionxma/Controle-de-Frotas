@@ -52,22 +52,26 @@ export default function PaymentSuccessPage() {
     activate()
   }, [sessionId])
 
-  // 2) Quando o auth-context detectar subscription_status === "active" (via onSnapshot),
+  // 2) Ativação confirmada (pagamento real) OU grace do boleto ativo →
   //    redireciona para o dashboard.
   useEffect(() => {
-    if (!isLoading && user?.subscription_status === "active") {
+    if (isLoading || !user) return
+    const hasBoletoGrace =
+      !!user.pending_boleto_until && user.pending_boleto_until.getTime() > Date.now()
+    if (user.subscription_status === "active" || hasBoletoGrace) {
       router.replace("/dashboard")
     }
   }, [user, isLoading, router])
 
-  // 3) Sem session_id na URL — vai direto para o dashboard se já tem assinatura
+  // 3) Sem session_id na URL — vai direto para o dashboard se já tem acesso
   useEffect(() => {
-    if (!sessionId && !isLoading) {
-      if (user?.subscription_status === "active") {
-        router.replace("/dashboard")
-      } else {
-        router.replace("/plans")
-      }
+    if (sessionId || isLoading || !user) return
+    const hasBoletoGrace =
+      !!user.pending_boleto_until && user.pending_boleto_until.getTime() > Date.now()
+    if (user.subscription_status === "active" || hasBoletoGrace) {
+      router.replace("/dashboard")
+    } else {
+      router.replace("/plans")
     }
   }, [sessionId, isLoading, user, router])
 

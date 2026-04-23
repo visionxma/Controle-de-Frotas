@@ -31,9 +31,13 @@ function PlansPageContent() {
     }
   }, [user?.max_trucks])
 
-  // Se já tem assinatura ativa e NÃO está trocando, vai para o dashboard
+  // Se já tem assinatura ativa OU está no grace de 5 dias do boleto, vai
+  // direto para o dashboard (a não ser que o usuário esteja trocando de plano).
   useEffect(() => {
-    if (!isLoading && user?.subscription_status === "active" && !isChanging) {
+    if (isLoading || isChanging || !user) return
+    const hasBoletoGrace =
+      !!user.pending_boleto_until && user.pending_boleto_until.getTime() > Date.now()
+    if (user.subscription_status === "active" || hasBoletoGrace) {
       router.replace("/dashboard")
     }
   }, [user, isLoading, router, isChanging])

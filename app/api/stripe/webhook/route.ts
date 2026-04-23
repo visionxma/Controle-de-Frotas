@@ -14,11 +14,16 @@ async function updateUserSubscription(
     max_trucks?: number | null
     stripe_customer_id?: string
     stripe_subscription_id?: string
+    pending_boleto_until?: Date | null
   },
 ) {
   const userRef = getAdminDb().collection("users").doc(userId)
   await userRef.set(data, { merge: true })
 }
+
+// 5 dias de acesso gratuito a partir da geração do boleto.
+// Alinhado com payment_method_options.boleto.expires_after_days no checkout.
+const BOLETO_GRACE_DAYS = 5
 
 // Extrai userId dos metadados de um objeto Stripe qualquer
 function getUserId(metadata: Stripe.Metadata | null): string | null {
@@ -82,11 +87,6 @@ export async function POST(request: NextRequest) {
           session.payment_status === "paid" ||
           session.payment_status === "no_payment_required"
 
-        if (!paymentOk) {
-          console.log(`[webhook] Session ${session.id} — payment_status=${session.payment_status}, aguardando invoice.paid`)
-          break
-        }
-
         const userId = getUserId(session.metadata)
         if (!userId) {
           console.error("[webhook] checkout.session.completed sem userId nos metadados")
@@ -95,12 +95,33 @@ export async function POST(request: NextRequest) {
 
         const maxTrucks = parseInt(session.metadata?.maxTrucks ?? "0", 10)
 
+        // Boleto/pix pendente: grava grace period de 5 dias para o usuário
+        // já ter acesso ao sistema antes da compensação.
+        if (!paymentOk) {
+          const graceUntil = new Date(Date.now() + BOLETO_GRACE_DAYS * 24 * 60 * 60 * 1000)
+
+          await updateUserSubscription(userId, {
+            subscription_status: "incomplete",
+            plan_type: "frotas",
+            max_trucks: maxTrucks > 0 ? maxTrucks : null,
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+            pending_boleto_until: graceUntil,
+          })
+
+          console.log(
+            `[webhook] Boleto PENDENTE — userId=${userId}, acesso liberado até ${graceUntil.toISOString()}`,
+          )
+          break
+        }
+
         await updateUserSubscription(userId, {
           subscription_status: "active",
           plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
+          pending_boleto_until: null,
         })
 
         console.log(`[webhook] Assinatura ATIVADA — userId=${userId}, max_trucks=${maxTrucks}`)
@@ -130,6 +151,7 @@ export async function POST(request: NextRequest) {
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
+          pending_boleto_until: null,
         })
 
         console.log(`[webhook] Boleto/Pix CONFIRMADO — userId=${userId}`)
@@ -161,6 +183,7 @@ export async function POST(request: NextRequest) {
           plan_type: "frotas",
           max_trucks: maxTrucks > 0 ? maxTrucks : null,
           stripe_subscription_id: subscription.id,
+          pending_boleto_until: null,
         })
 
         console.log(`[webhook] invoice.paid processado — userId=${userId}, max_trucks=${maxTrucks}`)
