@@ -220,26 +220,33 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
 
     setIsSavingFreight(true)
     try {
+      // Spread condicional — Firestore rejeita valores `undefined`, então campos
+      // opcionais só podem ir no payload quando têm conteúdo de fato.
+      const trimmedDescription = newFreightDescription.trim()
+      const trimmedOrigin = newFreightOrigin.trim()
+      const trimmedDestination = newFreightDestination.trim()
+
       const newEntry: TripFreightEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         value: newFreightValue,
-        description: newFreightDescription.trim() || undefined,
-        origin: newFreightOrigin.trim() || undefined,
-        destination: newFreightDestination.trim() || undefined,
         timestamp: new Date().toISOString(),
+        ...(trimmedDescription && { description: trimmedDescription }),
+        ...(trimmedOrigin && { origin: trimmedOrigin }),
+        ...(trimmedDestination && { destination: trimmedDestination }),
       }
 
-      // Migra valor legado para a lista no primeiro registro
+      // Migra valor legado para a lista no primeiro registro (mesma lógica de
+      // omitir chaves vazias para evitar `undefined` no Firestore).
       const baseEntries: TripFreightEntry[] = freightEntries.length
         ? freightEntries
         : legacyFreightValue > 0
           ? [{
               id: `legacy-${Date.now()}`,
               value: legacyFreightValue,
-              description: trip.cargoDescription || undefined,
-              origin: trip.startLocation || undefined,
-              destination: trip.endLocation || undefined,
               timestamp: new Date(`${trip.startDate}T${trip.startTime || "00:00"}`).toISOString(),
+              ...(trip.cargoDescription && { description: trip.cargoDescription }),
+              ...(trip.startLocation && { origin: trip.startLocation }),
+              ...(trip.endLocation && { destination: trip.endLocation }),
             }]
           : []
 
@@ -271,9 +278,10 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
     if (!deleteFreightId) return
     const updatedEntries = freightEntries.filter((f) => f.id !== deleteFreightId)
     const updatedTotal = updatedEntries.reduce((sum, f) => sum + (f.value || 0), 0)
+    // Firestore rejeita `undefined`. Se não sobrou frete, grava 0 em vez de undefined.
     const success = await updateTrip(trip.id, {
       freightEntries: updatedEntries,
-      freightValue: updatedTotal > 0 ? updatedTotal : undefined,
+      freightValue: updatedTotal,
     } as any)
     if (success) {
       toast.success("Frete removido")

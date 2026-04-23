@@ -21,6 +21,65 @@ interface CityAutocompleteProps {
   formatValue?: (city: City) => string
 }
 
+const CACHE_KEY = "ibge-municipios-v1"
+const IBGE_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
+
+let memoryCache: City[] | null = null
+let loadPromise: Promise<City[]> | null = null
+
+const normalize = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+
+async function loadMunicipios(): Promise<City[]> {
+  if (memoryCache) return memoryCache
+  if (loadPromise) return loadPromise
+
+  loadPromise = (async () => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw) as City[]
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            memoryCache = parsed
+            return parsed
+          }
+        }
+      } catch {}
+    }
+
+    const res = await fetch(IBGE_URL)
+    if (!res.ok) throw new Error(`IBGE request failed: ${res.status}`)
+    const data = await res.json()
+    const list: City[] = (Array.isArray(data) ? data : [])
+      .map((m: any) => {
+        const sigla: string | undefined =
+          m?.microrregiao?.mesorregiao?.UF?.sigla ??
+          m?.["regiao-imediata"]?.["regiao-intermediaria"]?.UF?.sigla
+        return sigla ? { id: m.id, nome: m.nome, estado: sigla } : null
+      })
+      .filter((c: City | null): c is City => c !== null)
+
+    memoryCache = list
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(list))
+      } catch {}
+    }
+    return list
+  })()
+
+  try {
+    return await loadPromise
+  } finally {
+    loadPromise = null
+  }
+}
+
 export function CityAutocomplete({
   value,
   onChange,
@@ -36,7 +95,6 @@ export function CityAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cacheRef = useRef<Map<string, City[]>>(new Map())
   const lastQueryRef = useRef<string>("")
 
   useEffect(() => {
@@ -67,30 +125,29 @@ export function CityAutocomplete({
       return
     }
 
-    const cached = cacheRef.current.get(query.toLowerCase())
-    if (cached) {
-      setSuggestions(cached)
-      setIsOpen(cached.length > 0)
-      return
-    }
-
     setIsLoading(true)
     lastQueryRef.current = query
     try {
-      const response = await fetch(`https://brasilapi.com.br/api/cptec/v1/cidade/${encodeURIComponent(query)}`)
+      const all = await loadMunicipios()
       if (lastQueryRef.current !== query) return
-      if (response.ok) {
-        const data = await response.json()
-        const list: City[] = Array.isArray(data) ? data.slice(0, 30) : []
-        cacheRef.current.set(query.toLowerCase(), list)
-        setSuggestions(list)
-        setIsOpen(list.length > 0)
-      } else {
-        setSuggestions([])
+
+      const q = normalize(query)
+      const starts: City[] = []
+      const contains: City[] = []
+      for (const city of all) {
+        const n = normalize(city.nome)
+        if (n.startsWith(q)) starts.push(city)
+        else if (n.includes(q)) contains.push(city)
+        if (starts.length >= 30) break
       }
+      const list = [...starts, ...contains].slice(0, 30)
+
+      setSuggestions(list)
+      setIsOpen(list.length > 0)
     } catch (err) {
       console.error("Error fetching cities:", err)
       setSuggestions([])
+      setIsOpen(false)
     } finally {
       if (lastQueryRef.current === query) setIsLoading(false)
     }
@@ -102,7 +159,7 @@ export function CityAutocomplete({
     onChange(val)
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(() => searchCities(val), 250)
+    timeoutRef.current = setTimeout(() => searchCities(val), 200)
   }
 
   const handleFocus = () => {

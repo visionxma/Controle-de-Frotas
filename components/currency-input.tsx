@@ -43,13 +43,13 @@ export function CurrencyInput({
 
   const handleFocus = () => {
     setIsFocused(true)
-    setRawInput("") // limpa ao focar para o usuário digitar do zero
+    // Se já existe um valor no pai, mostra formatado pro usuário editar
+    // (ex: 3500 → "3.500,00"); caso contrário começa vazio.
+    setRawInput(value > 0 ? formatBRL(value) : "")
   }
 
   const handleBlur = () => {
     setIsFocused(false)
-    const parsed = parseBRL(rawInput)
-    onChange(parsed)
     setRawInput("")
   }
 
@@ -57,6 +57,9 @@ export function CurrencyInput({
     // Aceita apenas dígitos, vírgula e ponto
     const val = e.target.value.replace(/[^0-9.,]/g, "")
     setRawInput(val)
+    // Propaga o valor a cada tecla para que o pai veja o estado atual
+    // mesmo se o usuário clicar em "Salvar" sem tirar o foco do campo.
+    onChange(parseBRL(val))
   }
 
   // Quando focado: mostra o que o usuário está digitando
