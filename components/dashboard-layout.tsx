@@ -69,7 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-8 overflow-y-auto space-y-8 scrollbar-hide">
+          <nav className="flex-1 px-4 py-8 overflow-y-auto space-y-8 sidebar-scroll">
             {/* Group 1: Gerenciamento */}
             <div className="space-y-4">
               {!isMinimized && (
