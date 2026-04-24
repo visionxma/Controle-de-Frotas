@@ -13,7 +13,6 @@ import { TripDetails } from "@/components/trip-details"
 import { useTrips, type Trip } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
 import { useOrphanCleanup } from "@/hooks/use-orphan-cleanup"
-import { useFreightSync } from "@/hooks/use-freight-sync"
 import { useToast } from "@/hooks/use-toast"
 import { SearchFilter } from "@/components/search-filter"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
@@ -32,11 +31,9 @@ export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   const { trips, isLoading, addTrip, completeTrip, deleteTrip } = useTrips()
-  const { transactions, addTransaction } = useTransactions()
+  const { transactions, upsertFreightTransaction } = useTransactions()
   // Limpeza automática de transações órfãs em toda visita à página.
   useOrphanCleanup()
-  // Auto-cria transações para fretes existentes que ainda não têm receita.
-  useFreightSync()
 
   const selectedTrip = useMemo(() => {
     if (!tripIdParam || !trips) return null
@@ -63,7 +60,7 @@ export default function TripsPage() {
           const descriptionParts = [initialFreight.description, routeLabel]
             .filter(Boolean)
             .join(" — ")
-          await addTransaction({
+          await upsertFreightTransaction(initialFreight.id, {
             type: "receita",
             description: descriptionParts
               ? `Frete — ${descriptionParts}`
@@ -74,7 +71,6 @@ export default function TripsPage() {
             tripId,
             truckId: data.truckId,
             driverId: data.driverId,
-            freightEntryId: initialFreight.id,
           })
         }
 

@@ -14,7 +14,6 @@ import { Download } from "lucide-react"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { useTransactions } from "@/hooks/use-transactions"
 import { useOrphanCleanup } from "@/hooks/use-orphan-cleanup"
-import { useFreightSync } from "@/hooks/use-freight-sync"
 import { Button } from "@/components/ui/button"
 import { PlanBanner } from "@/components/plan-banner"
 import { OnboardingTour } from "@/components/onboarding-tour"
@@ -31,9 +30,6 @@ export default function DashboardPage() {
 
   // Limpeza automática de transações órfãs (viagens/locações já removidas).
   useOrphanCleanup()
-  // Preenchimento automático: fretes sem transação correspondente ganham
-  // uma transação do tipo receita — mantém Financeiro e Dashboard completos.
-  useFreightSync()
 
   const handleDownloadPDF = () => {
     const stats = {

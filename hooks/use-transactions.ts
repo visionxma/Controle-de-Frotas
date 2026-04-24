@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc, getDocs, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Modulo-level cache to share singleton across components
@@ -151,6 +151,57 @@ export function useTransactions() {
     }
   }
 
+  // Upsert idempotente para a transação (receita) vinculada a um freightEntry.
+  // Consulta direto o Firestore para não depender do estado local (que pode
+  // estar defasado pelo onSnapshot). Se já existe uma transação com o mesmo
+  // freightEntryId, atualiza; caso contrário, cria. Elimina a duplicação que
+  // ocorria quando o fluxo tentava criar a transação duas vezes em paralelo.
+  const upsertFreightTransaction = async (
+    freightEntryId: string,
+    data: Omit<Transaction, "id" | "userId" | "freightEntryId">,
+  ) => {
+    if (!user) return false
+
+    try {
+      const existingSnap = await getDocs(
+        query(
+          collection(db, "transactions"),
+          where("freightEntryId", "==", freightEntryId),
+          limit(1),
+        ),
+      )
+
+      if (!existingSnap.empty) {
+        // Transação já existe: atualiza em vez de criar outra.
+        const cleanUpdate = Object.fromEntries(
+          Object.entries({
+            ...data,
+            updatedAt: new Date(),
+          }).filter(([_, value]) => value !== undefined),
+        )
+        await updateDoc(existingSnap.docs[0].ref, cleanUpdate)
+        return true
+      }
+
+      const cleanData = Object.fromEntries(
+        Object.entries({
+          ...data,
+          freightEntryId,
+          userId: user.id,
+          createdBy: user.name,
+          createdByRole: user.role,
+          createdAt: new Date(),
+          ...(user.role === "collaborator" && user.adminId && { adminId: user.adminId }),
+        }).filter(([_, value]) => value !== undefined),
+      )
+      await addDoc(collection(db, "transactions"), cleanData)
+      return true
+    } catch (error) {
+      console.error("Erro ao salvar transação do frete:", error)
+      return false
+    }
+  }
+
   // Mantém trip.freightEntries em sincronia com o documento da transação
   // quando o usuário edita/apaga um frete direto pelo Financeiro. Sem isso,
   // trip-details continua exibindo o valor antigo da lista de fretes.
@@ -206,11 +257,18 @@ export function useTransactions() {
       )
 
       const transactionRef = doc(db, "transactions", id)
+
+      // Lê do Firestore direto para pegar freightEntryId/tripId antes do update —
+      // depender do estado local é frágil (pode estar defasado pelo onSnapshot).
+      const currentSnap = await getDoc(transactionRef)
+      const currentTx = currentSnap.exists()
+        ? (currentSnap.data() as Transaction)
+        : null
+
       await updateDoc(transactionRef, cleanData)
 
       // Espelha alterações de valor/descrição no freight entry correspondente
       // da viagem (quando a transação é um frete linkado).
-      const currentTx = transactions.find((t) => t.id === id)
       if (currentTx?.freightEntryId && currentTx?.tripId) {
         await syncFreightEntryInTrip(currentTx.tripId, currentTx.freightEntryId, {
           type: "update",
@@ -228,20 +286,47 @@ export function useTransactions() {
 
   const deleteTransaction = async (id: string) => {
     try {
-      // Se for um frete linkado, remove também a entrada em trip.freightEntries
-      // ANTES de apagar a transação (precisamos ler tripId/freightEntryId antes).
-      const currentTx = transactions.find((t) => t.id === id)
-      if (currentTx?.freightEntryId && currentTx?.tripId) {
-        await syncFreightEntryInTrip(currentTx.tripId, currentTx.freightEntryId, {
-          type: "delete",
-        })
+      const transactionRef = doc(db, "transactions", id)
+
+      // Lê do Firestore direto (não do estado local) — garante que o sync
+      // aconteça mesmo se o onSnapshot ainda não hidratou `transactions`.
+      const currentSnap = await getDoc(transactionRef)
+      if (currentSnap.exists()) {
+        const currentTx = currentSnap.data() as Transaction
+        // Frete linkado: remove também a entrada em trip.freightEntries ANTES
+        // de apagar a transação, para não deixar o frete fantasma na viagem.
+        if (currentTx.freightEntryId && currentTx.tripId) {
+          await syncFreightEntryInTrip(currentTx.tripId, currentTx.freightEntryId, {
+            type: "delete",
+          })
+        }
       }
 
-      const transactionRef = doc(db, "transactions", id)
       await deleteDoc(transactionRef)
       return true
     } catch (error) {
       console.error("Erro ao deletar transação:", error)
+      return false
+    }
+  }
+
+  // Apaga a transação (receita) vinculada a um freightEntry, buscando direto
+  // no Firestore por freightEntryId. Não depende do estado local — usado
+  // pelo trip-details quando o usuário remove um frete da viagem.
+  const deleteFreightTransaction = async (freightEntryId: string) => {
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "transactions"),
+          where("freightEntryId", "==", freightEntryId),
+        ),
+      )
+      if (snap.empty) return true
+      // Se por algum motivo houver múltiplas (dados antigos), apaga todas.
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
+      return true
+    } catch (error) {
+      console.error("Erro ao apagar transação do frete:", error)
       return false
     }
   }
@@ -400,8 +485,10 @@ export function useTransactions() {
     transactions,
     isLoading,
     addTransaction,
+    upsertFreightTransaction,
     updateTransaction,
     deleteTransaction,
+    deleteFreightTransaction,
     getMonthlyStats,
     getChartData,
     getFilteredStats,

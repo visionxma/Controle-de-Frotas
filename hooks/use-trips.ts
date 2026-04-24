@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDocs, writeBatch } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc, getDocs, writeBatch } from "firebase/firestore"
 import { ref, deleteObject } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
 import { useTrucks } from "./use-trucks"
@@ -263,12 +263,20 @@ export function useTrips() {
 
   const deleteTrip = async (id: string) => {
     try {
-      // 1. Apaga as fotos do Firebase Storage (best-effort — se alguma falhar,
-      //    segue adiante, pois o doc da viagem e as transações têm prioridade).
-      const trip = trips.find((t) => t.id === id)
-      if (trip?.photos?.length) {
+      const tripRef = doc(db, "trips", id)
+
+      // 1. Lê do Firestore (não do estado local, que pode estar defasado).
+      //    Precisamos de `photos` (para limpar Storage) e `freightEntries`
+      //    (para cobrir transações legadas sem `tripId`).
+      const tripSnap = await getDoc(tripRef)
+      const tripData = tripSnap.exists()
+        ? (tripSnap.data() as Trip)
+        : null
+
+      // 2. Apaga fotos do Storage (best-effort — se alguma falhar, seguimos).
+      if (tripData?.photos?.length) {
         await Promise.all(
-          trip.photos.map(async (photo) => {
+          tripData.photos.map(async (photo) => {
             try {
               const decodedUrl = decodeURIComponent(photo.url)
               const pathMatch = decodedUrl.match(/\/o\/(.+?)\?/)
@@ -282,16 +290,36 @@ export function useTrips() {
         )
       }
 
-      // 2. Busca todas as transações (despesas/receitas) vinculadas à viagem.
-      const txSnap = await getDocs(
+      // 3. Busca transações vinculadas por `tripId` — cobre despesas e fretes
+      //    modernos (que sempre gravam tripId).
+      const byTripIdSnap = await getDocs(
         query(collection(db, "transactions"), where("tripId", "==", id)),
       )
+      const docsToDelete = new Map<string, any>()
+      byTripIdSnap.docs.forEach((d) => docsToDelete.set(d.id, d.ref))
 
-      // 3. Atômico: apaga todas as transações + o doc da viagem num único batch.
+      // 4. Rede de segurança para fretes legados: se algum freightEntry da
+      //    viagem tiver transação sem `tripId` (dados antigos), captura pelo
+      //    freightEntryId. Firestore `in` aceita até 30 valores por query —
+      //    então fazemos em chunks.
+      const freightIds = (tripData?.freightEntries || [])
+        .map((f) => f.id)
+        .filter((fid): fid is string => Boolean(fid))
+
+      for (let i = 0; i < freightIds.length; i += 30) {
+        const chunk = freightIds.slice(i, i + 30)
+        if (!chunk.length) continue
+        const byFreightIdSnap = await getDocs(
+          query(collection(db, "transactions"), where("freightEntryId", "in", chunk)),
+        )
+        byFreightIdSnap.docs.forEach((d) => docsToDelete.set(d.id, d.ref))
+      }
+
+      // 5. Atômico: apaga todas as transações coletadas + o doc da viagem.
       //    Se qualquer parte falhar, nada é apagado.
       const batch = writeBatch(db)
-      txSnap.docs.forEach((txDoc) => batch.delete(txDoc.ref))
-      batch.delete(doc(db, "trips", id))
+      docsToDelete.forEach((txRef) => batch.delete(txRef))
+      batch.delete(tripRef)
       await batch.commit()
 
       return true

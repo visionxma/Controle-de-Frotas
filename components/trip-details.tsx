@@ -59,7 +59,7 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const { calculateTripDuration, updateTrip } = useTrips()
-  const { transactions, deleteTransaction, addTransaction, updateTransaction } = useTransactions()
+  const { transactions, deleteTransaction, upsertFreightTransaction, deleteFreightTransaction } = useTransactions()
   const { user } = useAuth()
   // Admins podem editar/excluir fretes mesmo após a viagem ser concluída.
   // Colaboradores só podem modificar fretes enquanto a viagem está em andamento.
@@ -275,13 +275,13 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
 
       if (success) {
         // Replica o frete como uma transação de receita para refletir em tempo
-        // real no Financeiro e no Dashboard. O freightEntryId mantém o vínculo
-        // com a entrada dentro do trip para permitir remoção sincronizada.
+        // real no Financeiro e no Dashboard. Upsert idempotente por
+        // freightEntryId elimina duplicação em caso de reentrada do handler.
         const routeLabel = trimmedOrigin && trimmedDestination
           ? `${trimmedOrigin} → ${trimmedDestination}`
           : trimmedOrigin || trimmedDestination || ""
         const descriptionParts = [trimmedDescription, routeLabel].filter(Boolean).join(" — ")
-        await addTransaction({
+        await upsertFreightTransaction(newEntry.id, {
           type: "receita",
           description: descriptionParts
             ? `Frete — ${descriptionParts}`
@@ -292,7 +292,6 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
           tripId: trip.id,
           truckId: trip.truckId,
           driverId: trip.driverId,
-          freightEntryId: newEntry.id,
         })
 
         toast.success("Frete adicionado!")
@@ -320,14 +319,10 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
       freightValue: updatedTotal,
     } as any)
     if (success) {
-      // Remove também a transação de receita linkada (se existir) para manter
-      // Financeiro e Dashboard consistentes com a lista de fretes da viagem.
-      const linkedTx = transactions.find(
-        (t) => t.freightEntryId === deleteFreightId,
-      )
-      if (linkedTx) {
-        await deleteTransaction(linkedTx.id)
-      }
+      // Remove a transação (receita) linkada diretamente no Firestore para
+      // manter Financeiro e Dashboard consistentes — não depende do estado
+      // local, que pode estar defasado pelo onSnapshot.
+      await deleteFreightTransaction(deleteFreightId)
       toast.success("Frete removido")
     } else {
       toast.error("Erro ao remover frete")
@@ -388,8 +383,10 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         return
       }
 
-      // Sincroniza a transação: se já existe uma linkada, atualiza.
-      // Se não existe (entries legadas sem freightEntryId), cria uma nova.
+      // Upsert idempotente: se já existe transação para esse freightEntryId,
+      // atualiza; senão, cria uma nova. Consulta o Firestore direto para não
+      // depender do estado local `transactions` (que pode estar defasado
+      // pelo onSnapshot e gerar duplicata).
       const routeLabel = trimmedOrigin && trimmedDestination
         ? `${trimmedOrigin} → ${trimmedDestination}`
         : trimmedOrigin || trimmedDestination || ""
@@ -398,25 +395,16 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         ? `Frete — ${descriptionParts}`
         : `Frete da viagem #${trip.id.slice(-6)}`
 
-      const linkedTx = transactions.find((t) => t.freightEntryId === editingFreightId)
-      if (linkedTx) {
-        await updateTransaction(linkedTx.id, {
-          amount: editFreightValue,
-          description: finalDescription,
-        })
-      } else {
-        await addTransaction({
-          type: "receita",
-          description: finalDescription,
-          amount: editFreightValue,
-          date: new Date().toISOString().split("T")[0],
-          category: "frete",
-          tripId: trip.id,
-          truckId: trip.truckId,
-          driverId: trip.driverId,
-          freightEntryId: editingFreightId,
-        })
-      }
+      await upsertFreightTransaction(editingFreightId, {
+        type: "receita",
+        description: finalDescription,
+        amount: editFreightValue,
+        date: new Date().toISOString().split("T")[0],
+        category: "frete",
+        tripId: trip.id,
+        truckId: trip.truckId,
+        driverId: trip.driverId,
+      })
 
       toast.success("Frete atualizado")
       cancelEditingFreight()
@@ -454,12 +442,13 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         return
       }
 
-      // Cria a transação linkada (que não existia pro legado).
+      // Cria a transação linkada (que não existia pro legado). Upsert
+      // idempotente evita duplicação caso o usuário clique duas vezes.
       const routeLabel = newEntry.origin && newEntry.destination
         ? `${newEntry.origin} → ${newEntry.destination}`
         : newEntry.origin || newEntry.destination || ""
       const descParts = [newEntry.description, routeLabel].filter(Boolean).join(" — ")
-      await addTransaction({
+      await upsertFreightTransaction(newId, {
         type: "receita",
         description: descParts ? `Frete — ${descParts}` : `Frete da viagem #${trip.id.slice(-6)}`,
         amount: legacyFreightValue,
@@ -468,7 +457,6 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         tripId: trip.id,
         truckId: trip.truckId,
         driverId: trip.driverId,
-        freightEntryId: newId,
       })
 
       // Abre edição imediatamente — onSnapshot vai atualizar freightEntries

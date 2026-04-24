@@ -11,7 +11,6 @@ import { FixedExpensesCard } from "@/components/fixed-expenses-card"
 import { useTransactions, type Transaction } from "@/hooks/use-transactions"
 import { useFixedExpenses } from "@/hooks/use-fixed-expenses"
 import { useOrphanCleanup } from "@/hooks/use-orphan-cleanup"
-import { useFreightSync } from "@/hooks/use-freight-sync"
 import { useToast } from "@/hooks/use-toast"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
 import { cn } from "@/lib/utils"
@@ -28,8 +27,6 @@ export default function FinancePage() {
 
   // Apaga transações órfãs (viagens/locações já removidas) em background.
   useOrphanCleanup()
-  // Cria transações faltantes para fretes registrados sem receita correspondente.
-  useFreightSync()
 
   const handleSubmit = async (data: Omit<Transaction, "id" | "userId">, commission?: Omit<Transaction, "id" | "userId">) => {
     setIsSubmitting(true)
