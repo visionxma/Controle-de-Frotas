@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc, getDocs, writeBatch } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc, getDocs, writeBatch, increment } from "firebase/firestore"
 import { ref, deleteObject } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
 import { useTrucks } from "./use-trucks"
@@ -266,8 +266,6 @@ export function useTrips() {
       const tripRef = doc(db, "trips", id)
 
       // 1. Lê do Firestore (não do estado local, que pode estar defasado).
-      //    Precisamos de `photos` (para limpar Storage) e `freightEntries`
-      //    (para cobrir transações legadas sem `tripId`).
       const tripSnap = await getDoc(tripRef)
       const tripData = tripSnap.exists()
         ? (tripSnap.data() as Trip)
@@ -290,18 +288,14 @@ export function useTrips() {
         )
       }
 
-      // 3. Busca transações vinculadas por `tripId` — cobre despesas e fretes
-      //    modernos (que sempre gravam tripId).
+      // 3. Busca transações vinculadas por `tripId`.
       const byTripIdSnap = await getDocs(
         query(collection(db, "transactions"), where("tripId", "==", id)),
       )
       const docsToDelete = new Map<string, any>()
       byTripIdSnap.docs.forEach((d) => docsToDelete.set(d.id, d.ref))
 
-      // 4. Rede de segurança para fretes legados: se algum freightEntry da
-      //    viagem tiver transação sem `tripId` (dados antigos), captura pelo
-      //    freightEntryId. Firestore `in` aceita até 30 valores por query —
-      //    então fazemos em chunks.
+      // 4. Rede de segurança para fretes legados sem `tripId`.
       const freightIds = (tripData?.freightEntries || [])
         .map((f) => f.id)
         .filter((fid): fid is string => Boolean(fid))
@@ -315,11 +309,48 @@ export function useTrips() {
         byFreightIdSnap.docs.forEach((d) => docsToDelete.set(d.id, d.ref))
       }
 
-      // 5. Atômico: apaga todas as transações coletadas + o doc da viagem.
-      //    Se qualquer parte falhar, nada é apagado.
+      // 5. Se a viagem estava concluída, calcula o KM correto que o caminhão
+      //    deve ter após a exclusão: o maior endKm entre as demais viagens
+      //    concluídas do mesmo caminhão, ou o startKm desta viagem se não
+      //    houver outras.
+      let mileageRollback: number | null = null
+      if (tripData?.status === "completed" && tripData.truckId) {
+        const remainingSnap = await getDocs(
+          query(
+            collection(db, "trips"),
+            where("truckId", "==", tripData.truckId),
+            where("status", "==", "completed"),
+          ),
+        )
+        let maxEndKm = tripData.startKm
+        remainingSnap.docs.forEach((d) => {
+          if (d.id !== id) {
+            const t = d.data() as Trip
+            if (t.endKm && t.endKm > maxEndKm) maxEndKm = t.endKm
+          }
+        })
+        mileageRollback = maxEndKm
+      }
+
+      // 6. Atômico: apaga transações + viagem e corrige dados do caminhão.
       const batch = writeBatch(db)
       docsToDelete.forEach((txRef) => batch.delete(txRef))
       batch.delete(tripRef)
+
+      if (mileageRollback !== null && tripData?.truckId) {
+        const truckRef = doc(db, "trucks", tripData.truckId)
+        const truckUpdates: Record<string, any> = {
+          mileage: mileageRollback,
+          updatedAt: new Date(),
+        }
+        const liters = tripData.refuelingLiters ?? 0
+        if (liters > 0) {
+          truckUpdates.totalFuelLiters = increment(-liters)
+          truckUpdates.currentFuelLevel = increment(liters)
+        }
+        batch.update(truckRef, truckUpdates)
+      }
+
       await batch.commit()
 
       return true
