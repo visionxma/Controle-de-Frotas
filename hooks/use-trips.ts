@@ -165,8 +165,8 @@ export function useTrips() {
     }
   }, [user])
 
-  const addTrip = async (tripData: Omit<Trip, "id" | "userId" | "status">) => {
-    if (!user) return false
+  const addTrip = async (tripData: Omit<Trip, "id" | "userId" | "status">): Promise<string | null> => {
+    if (!user) return null
 
     try {
       const docData = {
@@ -179,10 +179,10 @@ export function useTrips() {
         ...(user.role === "collaborator" && user.adminId && { adminId: user.adminId }),
       }
 
-      await addDoc(collection(db, "trips"), docData)
-      return true
+      const docRef = await addDoc(collection(db, "trips"), docData)
+      return docRef.id
     } catch (error) {
-      return false
+      return null
     }
   }
 

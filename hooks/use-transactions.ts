@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Modulo-level cache to share singleton across components
@@ -151,6 +151,51 @@ export function useTransactions() {
     }
   }
 
+  // Mantém trip.freightEntries em sincronia com o documento da transação
+  // quando o usuário edita/apaga um frete direto pelo Financeiro. Sem isso,
+  // trip-details continua exibindo o valor antigo da lista de fretes.
+  const syncFreightEntryInTrip = async (
+    tripId: string,
+    freightEntryId: string,
+    action:
+      | { type: "update"; value?: number; description?: string }
+      | { type: "delete" },
+  ) => {
+    try {
+      const tripRef = doc(db, "trips", tripId)
+      const tripSnap = await getDoc(tripRef)
+      if (!tripSnap.exists()) return
+      const tripData = tripSnap.data() as { freightEntries?: Array<Record<string, unknown>> }
+      const entries = Array.isArray(tripData.freightEntries) ? tripData.freightEntries : []
+      if (!entries.length) return
+
+      let newEntries: typeof entries
+      if (action.type === "delete") {
+        newEntries = entries.filter((e) => (e as any).id !== freightEntryId)
+      } else {
+        newEntries = entries.map((e) =>
+          (e as any).id === freightEntryId
+            ? {
+                ...e,
+                ...(action.value !== undefined && { value: action.value }),
+                ...(action.description !== undefined && action.description.trim() && { description: action.description }),
+              }
+            : e,
+        )
+      }
+      const newTotal = newEntries.reduce(
+        (sum, e) => sum + (typeof (e as any).value === "number" ? (e as any).value : 0),
+        0,
+      )
+      await updateDoc(tripRef, {
+        freightEntries: newEntries,
+        freightValue: newTotal,
+      })
+    } catch (err) {
+      console.warn("[syncFreightEntryInTrip] Falha ao sincronizar trip.freightEntries:", err)
+    }
+  }
+
   const updateTransaction = async (id: string, transactionData: Partial<Omit<Transaction, "id" | "userId">>) => {
     try {
       const cleanData = Object.fromEntries(
@@ -162,6 +207,18 @@ export function useTransactions() {
 
       const transactionRef = doc(db, "transactions", id)
       await updateDoc(transactionRef, cleanData)
+
+      // Espelha alterações de valor/descrição no freight entry correspondente
+      // da viagem (quando a transação é um frete linkado).
+      const currentTx = transactions.find((t) => t.id === id)
+      if (currentTx?.freightEntryId && currentTx?.tripId) {
+        await syncFreightEntryInTrip(currentTx.tripId, currentTx.freightEntryId, {
+          type: "update",
+          value: transactionData.amount,
+          description: transactionData.description,
+        })
+      }
+
       return true
     } catch (error) {
       console.error("Erro ao atualizar transação:", error)
@@ -171,6 +228,15 @@ export function useTransactions() {
 
   const deleteTransaction = async (id: string) => {
     try {
+      // Se for um frete linkado, remove também a entrada em trip.freightEntries
+      // ANTES de apagar a transação (precisamos ler tripId/freightEntryId antes).
+      const currentTx = transactions.find((t) => t.id === id)
+      if (currentTx?.freightEntryId && currentTx?.tripId) {
+        await syncFreightEntryInTrip(currentTx.tripId, currentTx.freightEntryId, {
+          type: "delete",
+        })
+      }
+
       const transactionRef = doc(db, "transactions", id)
       await deleteDoc(transactionRef)
       return true

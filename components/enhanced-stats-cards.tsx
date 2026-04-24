@@ -54,8 +54,8 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
         { title: "Motoristas", value: filteredDrivers.length, sub: `${filteredDrivers.filter((d) => d.status === "active").length} disponíveis`, icon: Users, color: "text-purple-500", bg: "bg-purple-500/10" },
         { title: "Viagens", value: activeTrips, sub: `${completedTrips} concluídas`, icon: MapPin, color: "text-orange-500", bg: "bg-orange-500/10" },
         { title: "KM Rodados", value: totalKm.toLocaleString(), sub: `${totalKm > 0 ? (totalKm / Math.max(completedTrips, 1)).toFixed(0) : 0} km/viagem`, icon: Fuel, color: "text-amber-500", bg: "bg-amber-500/10" },
-        { title: "Receita", value: `R$ ${revenue.toLocaleString("pt-BR")}`, sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% vs anterior`, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10", isPositive: revenueChange >= 0 },
-        { title: "Lucro", value: `R$ ${profit.toLocaleString("pt-BR")}`, sub: `${profitChange.toFixed(1)}% margem`, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10", isPositive: profitChange >= 0 },
+        { title: "Receita", value: `R$ ${revenue.toLocaleString("pt-BR")}`, sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% vs anterior`, icon: TrendingUp, color: "text-blue-500", bg: "bg-blue-500/10", isPositive: revenueChange >= 0 },
+        { title: "Lucro", value: `R$ ${profit.toLocaleString("pt-BR")}`, sub: `${profitChange.toFixed(1)}% margem`, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10", isPositive: profitChange >= 0 },
       ].map((card, i) => (
         <div key={i} className="group relative flex flex-col p-5 bg-card border border-border/40 rounded-[2rem] hover:border-primary/30 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex items-center justify-between mb-4">
@@ -65,10 +65,17 @@ export function EnhancedStatsCards({ period, truckFilter, driverFilter }: Enhanc
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">{card.title}</span>
           </div>
           <div className="space-y-1">
-            <div className={cn("text-2xl font-bold tracking-tight", card.title === "Receita" ? "text-green-600" : card.title === "Lucro" ? "text-primary" : "text-foreground")}>
+            <div className={cn("text-2xl font-bold tracking-tight", card.title === "Lucro" ? "text-green-600" : card.title === "Receita" ? "text-blue-600" : "text-foreground")}>
               {card.value}
             </div>
-            <p className={cn("text-xs font-medium", card.isPositive === undefined ? "text-muted-foreground/60" : card.isPositive ? "text-green-600/80" : "text-red-500/80")}>
+            <p className={cn(
+              "text-xs font-medium",
+              card.isPositive === undefined
+                ? "text-muted-foreground/60"
+                : card.isPositive
+                  ? card.title === "Lucro" ? "text-green-600/80" : "text-blue-600/80"
+                  : "text-red-500/80",
+            )}>
               {card.sub}
             </p>
           </div>

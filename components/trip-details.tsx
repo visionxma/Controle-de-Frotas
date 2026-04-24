@@ -34,6 +34,8 @@ import {
   TrendingDown,
   Plus,
   Trash2,
+  Pencil,
+  X,
   ChevronDown,
   ChevronUp,
   CheckCircle,
@@ -42,6 +44,7 @@ import {
 import type { Trip, TripProgressEntry, TripRefuelingEntry, TripFreightEntry } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
+import { useAuth } from "@/contexts/auth-context"
 import { TripPhotoGallery } from "@/components/trip-photo-gallery"
 import { TripExpenseModal } from "@/components/trip-expense-modal"
 import { CityAutocomplete } from "@/components/city-autocomplete"
@@ -56,7 +59,11 @@ interface TripDetailsProps {
 
 export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const { calculateTripDuration, updateTrip } = useTrips()
-  const { transactions, deleteTransaction, addTransaction } = useTransactions()
+  const { transactions, deleteTransaction, addTransaction, updateTransaction } = useTransactions()
+  const { user } = useAuth()
+  // Admins podem editar/excluir fretes mesmo após a viagem ser concluída.
+  // Colaboradores só podem modificar fretes enquanto a viagem está em andamento.
+  const canModifyFreight = trip.status === "in_progress" || user?.role === "admin"
   const { generateSingleTripReport } = usePdfReports()
   const kmTraveled = trip.endKm ? trip.endKm - trip.startKm : 0
   const duration = calculateTripDuration(trip.startDate, trip.startTime, trip.endDate, trip.endTime)
@@ -89,6 +96,14 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
   const [newFreightDestination, setNewFreightDestination] = useState("")
   const [isSavingFreight, setIsSavingFreight] = useState(false)
   const [deleteFreightId, setDeleteFreightId] = useState<string | null>(null)
+
+  // Freight edit state — inline, substitui o row do entry quando editingFreightId bate
+  const [editingFreightId, setEditingFreightId] = useState<string | null>(null)
+  const [editFreightValue, setEditFreightValue] = useState<number>(0)
+  const [editFreightDescription, setEditFreightDescription] = useState("")
+  const [editFreightOrigin, setEditFreightOrigin] = useState("")
+  const [editFreightDestination, setEditFreightDestination] = useState("")
+  const [isSavingEditFreight, setIsSavingEditFreight] = useState(false)
 
   // Confirmação de exclusão
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null)
@@ -318,6 +333,156 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
       toast.error("Erro ao remover frete")
     }
     setDeleteFreightId(null)
+  }
+
+  const startEditingFreight = (entry: TripFreightEntry) => {
+    setEditingFreightId(entry.id)
+    setEditFreightValue(entry.value || 0)
+    setEditFreightDescription(entry.description || "")
+    setEditFreightOrigin(entry.origin || "")
+    setEditFreightDestination(entry.destination || "")
+  }
+
+  const cancelEditingFreight = () => {
+    setEditingFreightId(null)
+    setEditFreightValue(0)
+    setEditFreightDescription("")
+    setEditFreightOrigin("")
+    setEditFreightDestination("")
+  }
+
+  const confirmEditFreight = async () => {
+    if (!editingFreightId) return
+    if (!editFreightValue || editFreightValue <= 0) {
+      toast.error("Informe um valor maior que zero")
+      return
+    }
+
+    setIsSavingEditFreight(true)
+    try {
+      const trimmedDescription = editFreightDescription.trim()
+      const trimmedOrigin = editFreightOrigin.trim()
+      const trimmedDestination = editFreightDestination.trim()
+
+      const updatedEntries = freightEntries.map((f) =>
+        f.id === editingFreightId
+          ? {
+              id: f.id,
+              value: editFreightValue,
+              timestamp: f.timestamp,
+              ...(trimmedDescription && { description: trimmedDescription }),
+              ...(trimmedOrigin && { origin: trimmedOrigin }),
+              ...(trimmedDestination && { destination: trimmedDestination }),
+            }
+          : f,
+      )
+      const updatedTotal = updatedEntries.reduce((sum, f) => sum + (f.value || 0), 0)
+
+      const tripUpdateSuccess = await updateTrip(trip.id, {
+        freightEntries: updatedEntries,
+        freightValue: updatedTotal,
+      } as any)
+
+      if (!tripUpdateSuccess) {
+        toast.error("Erro ao atualizar frete")
+        return
+      }
+
+      // Sincroniza a transação: se já existe uma linkada, atualiza.
+      // Se não existe (entries legadas sem freightEntryId), cria uma nova.
+      const routeLabel = trimmedOrigin && trimmedDestination
+        ? `${trimmedOrigin} → ${trimmedDestination}`
+        : trimmedOrigin || trimmedDestination || ""
+      const descriptionParts = [trimmedDescription, routeLabel].filter(Boolean).join(" — ")
+      const finalDescription = descriptionParts
+        ? `Frete — ${descriptionParts}`
+        : `Frete da viagem #${trip.id.slice(-6)}`
+
+      const linkedTx = transactions.find((t) => t.freightEntryId === editingFreightId)
+      if (linkedTx) {
+        await updateTransaction(linkedTx.id, {
+          amount: editFreightValue,
+          description: finalDescription,
+        })
+      } else {
+        await addTransaction({
+          type: "receita",
+          description: finalDescription,
+          amount: editFreightValue,
+          date: new Date().toISOString().split("T")[0],
+          category: "frete",
+          tripId: trip.id,
+          truckId: trip.truckId,
+          driverId: trip.driverId,
+          freightEntryId: editingFreightId,
+        })
+      }
+
+      toast.success("Frete atualizado")
+      cancelEditingFreight()
+    } catch {
+      toast.error("Erro ao atualizar frete")
+    } finally {
+      setIsSavingEditFreight(false)
+    }
+  }
+
+  // Migra frete legado (trip.freightValue sem freightEntries) para freightEntries
+  // e já abre em modo edição. Também cria a transação linkada.
+  const migrateLegacyFreightAndEdit = async () => {
+    if (legacyFreightValue <= 0) return
+
+    setIsSavingEditFreight(true)
+    try {
+      const newId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const newEntry: TripFreightEntry = {
+        id: newId,
+        value: legacyFreightValue,
+        timestamp: new Date(`${trip.startDate}T${trip.startTime || "00:00"}`).toISOString(),
+        ...(trip.cargoDescription && { description: trip.cargoDescription }),
+        ...(trip.startLocation && { origin: trip.startLocation }),
+        ...(trip.endLocation && { destination: trip.endLocation }),
+      }
+
+      const success = await updateTrip(trip.id, {
+        freightEntries: [newEntry],
+        freightValue: legacyFreightValue,
+      } as any)
+
+      if (!success) {
+        toast.error("Erro ao preparar frete para edição")
+        return
+      }
+
+      // Cria a transação linkada (que não existia pro legado).
+      const routeLabel = newEntry.origin && newEntry.destination
+        ? `${newEntry.origin} → ${newEntry.destination}`
+        : newEntry.origin || newEntry.destination || ""
+      const descParts = [newEntry.description, routeLabel].filter(Boolean).join(" — ")
+      await addTransaction({
+        type: "receita",
+        description: descParts ? `Frete — ${descParts}` : `Frete da viagem #${trip.id.slice(-6)}`,
+        amount: legacyFreightValue,
+        date: new Date().toISOString().split("T")[0],
+        category: "frete",
+        tripId: trip.id,
+        truckId: trip.truckId,
+        driverId: trip.driverId,
+        freightEntryId: newId,
+      })
+
+      // Abre edição imediatamente — onSnapshot vai atualizar freightEntries
+      // em um render seguinte, e a UI renderiza o form de edição correspondente.
+      setEditingFreightId(newId)
+      setEditFreightValue(legacyFreightValue)
+      setEditFreightDescription(trip.cargoDescription || "")
+      setEditFreightOrigin(trip.startLocation || "")
+      setEditFreightDestination(trip.endLocation || "")
+    } catch {
+      toast.error("Erro ao preparar frete para edição")
+    } finally {
+      setIsSavingEditFreight(false)
+    }
   }
 
   const handleSaveObservations = async () => {
@@ -599,8 +764,9 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
         </Card>
       )}
 
-      {/* Fretes da Viagem — apenas em andamento */}
-      {trip.status === "in_progress" && (
+      {/* Fretes da Viagem — sempre visível se há fretes registrados ou viagem em andamento.
+          Admin pode editar/excluir mesmo após conclusão; colaborador só enquanto em andamento. */}
+      {(trip.status === "in_progress" || freightEntries.length > 0 || legacyFreightValue > 0) && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -641,7 +807,7 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
             {/* Frete legado (viagens antigas que tinham um único valor) */}
             {legacyFreightValue > 0 && freightEntries.length === 0 && (
               <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30">
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <DollarSign className="h-4 w-4 text-green-500 shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">
@@ -657,55 +823,179 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                     </p>
                   </div>
                 </div>
+                {canModifyFreight && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={migrateLegacyFreightAndEdit}
+                    disabled={isSavingEditFreight}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    title="Editar frete"
+                  >
+                    {isSavingEditFreight ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Pencil className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
             )}
 
             {/* Lista de fretes cadastrados */}
             {freightEntries.length > 0 && (
               <div className="space-y-2">
-                {freightEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <DollarSign className="h-4 w-4 text-green-500 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold">
-                          {formatCurrency(entry.value)}
-                          {entry.description && (
-                            <span className="text-muted-foreground font-normal">
-                              {" "}— {entry.description}
-                            </span>
+                {freightEntries.map((entry) =>
+                  editingFreightId === entry.id ? (
+                    <div
+                      key={entry.id}
+                      className="p-4 rounded-lg border-2 border-primary/40 bg-primary/5 space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-primary uppercase tracking-wider">
+                          Editando frete
+                        </p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={cancelEditingFreight}
+                          disabled={isSavingEditFreight}
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="Cancelar"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                          Valor do Frete *
+                        </Label>
+                        <CurrencyInput
+                          value={editFreightValue}
+                          onChange={setEditFreightValue}
+                          placeholder="Ex: 3.500,00"
+                          disabled={isSavingEditFreight}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-muted-foreground uppercase">
+                            Origem
+                          </Label>
+                          <CityAutocomplete
+                            value={editFreightOrigin}
+                            onChange={setEditFreightOrigin}
+                            placeholder="Ex: São Paulo"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-muted-foreground uppercase">
+                            Destino
+                          </Label>
+                          <CityAutocomplete
+                            value={editFreightDestination}
+                            onChange={setEditFreightDestination}
+                            placeholder="Ex: Curitiba"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                          Descrição da Carga
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Ex: 20t de soja"
+                          value={editFreightDescription}
+                          onChange={(e) => setEditFreightDescription(e.target.value)}
+                          disabled={isSavingEditFreight}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={confirmEditFreight}
+                          disabled={isSavingEditFreight}
+                        >
+                          {isSavingEditFreight ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Salvando...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Salvar Alterações
+                            </>
                           )}
-                        </p>
-                        {(entry.origin || entry.destination) && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3 w-3" />
-                            {entry.origin || "—"}
-                            {entry.destination && <> → {entry.destination}</>}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(entry.timestamp)} {formatTime(entry.timestamp)}
-                        </p>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={cancelEditingFreight}
+                          disabled={isSavingEditFreight}
+                        >
+                          Cancelar
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setDeleteFreightId(entry.id)}
-                      className="h-8 w-8 text-muted-foreground hover:text-red-500"
-                      title="Remover frete"
+                  ) : (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/30"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <DollarSign className="h-4 w-4 text-green-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold">
+                            {formatCurrency(entry.value)}
+                            {entry.description && (
+                              <span className="text-muted-foreground font-normal">
+                                {" "}— {entry.description}
+                              </span>
+                            )}
+                          </p>
+                          {(entry.origin || entry.destination) && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" />
+                              {entry.origin || "—"}
+                              {entry.destination && <> → {entry.destination}</>}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(entry.timestamp)} {formatTime(entry.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                      {canModifyFreight && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => startEditingFreight(entry)}
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            title="Editar frete"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setDeleteFreightId(entry.id)}
+                            className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                            title="Remover frete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                )}
               </div>
             )}
 
-            {/* Formulário para adicionar novo frete */}
+            {/* Formulário para adicionar novo frete — apenas enquanto a viagem
+                está em andamento. Após concluída, admin pode só editar/excluir. */}
+            {trip.status === "in_progress" && (
             <div className="p-4 border rounded-lg space-y-4">
               <p className="text-sm font-semibold">Adicionar Novo Frete</p>
               <div className="space-y-2">
@@ -773,6 +1063,7 @@ export function TripDetails({ trip, onComplete }: TripDetailsProps) {
                 )}
               </Button>
             </div>
+            )}
           </CardContent>
         </Card>
       )}

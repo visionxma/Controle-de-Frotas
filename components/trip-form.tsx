@@ -81,6 +81,20 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
       return
     }
 
+    // Se o usuário informou frete no momento da criação, já cria o primeiro
+    // entry em freightEntries com id próprio. O mesmo id é usado depois para
+    // gerar a transação de receita correspondente, mantendo o vínculo.
+    const hasInitialFreight = formData.freightValue > 0
+    const initialFreightEntry = hasInitialFreight
+      ? {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          value: formData.freightValue,
+          timestamp: new Date().toISOString(),
+          ...(formData.cargoDescription && { description: formData.cargoDescription }),
+          ...(formData.startLocation && { origin: formData.startLocation }),
+        }
+      : null
+
     onSubmit({
       truckId: formData.truckId,
       truckPlate: formData.truckPlate,
@@ -90,8 +104,11 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
       startKm: Number(formData.startKm),
       startDate: formData.startDate,
       startTime: formData.startTime,
-      cargoDescription: formData.cargoDescription || undefined,
-      freightValue: formData.freightValue > 0 ? formData.freightValue : undefined,
+      ...(formData.cargoDescription && { cargoDescription: formData.cargoDescription }),
+      ...(hasInitialFreight && {
+        freightValue: formData.freightValue,
+        freightEntries: [initialFreightEntry!],
+      }),
     })
   }
 

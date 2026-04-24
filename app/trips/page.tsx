@@ -12,6 +12,8 @@ import { CompleteTrip } from "@/components/complete-trip"
 import { TripDetails } from "@/components/trip-details"
 import { useTrips, type Trip } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
+import { useOrphanCleanup } from "@/hooks/use-orphan-cleanup"
+import { useFreightSync } from "@/hooks/use-freight-sync"
 import { useToast } from "@/hooks/use-toast"
 import { SearchFilter } from "@/components/search-filter"
 import { usePdfReports } from "@/hooks/use-pdf-reports"
@@ -30,7 +32,11 @@ export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   const { trips, isLoading, addTrip, completeTrip, deleteTrip } = useTrips()
-  const { transactions } = useTransactions()
+  const { transactions, addTransaction } = useTransactions()
+  // Limpeza automática de transações órfãs em toda visita à página.
+  useOrphanCleanup()
+  // Auto-cria transações para fretes existentes que ainda não têm receita.
+  useFreightSync()
 
   const selectedTrip = useMemo(() => {
     if (!tripIdParam || !trips) return null
@@ -45,8 +51,33 @@ export default function TripsPage() {
     setIsSubmitting(true)
 
     try {
-      const success = await addTrip(data)
-      if (success) {
+      const tripId = await addTrip(data)
+      if (tripId) {
+        // Se a viagem foi criada com frete inicial, espelha como transação
+        // receita para aparecer em tempo real no Financeiro e no Dashboard.
+        const initialFreight = data.freightEntries?.[0]
+        if (initialFreight && initialFreight.value > 0) {
+          const routeLabel = initialFreight.origin && initialFreight.destination
+            ? `${initialFreight.origin} → ${initialFreight.destination}`
+            : initialFreight.origin || initialFreight.destination || ""
+          const descriptionParts = [initialFreight.description, routeLabel]
+            .filter(Boolean)
+            .join(" — ")
+          await addTransaction({
+            type: "receita",
+            description: descriptionParts
+              ? `Frete — ${descriptionParts}`
+              : `Frete da viagem #${tripId.slice(-6)}`,
+            amount: initialFreight.value,
+            date: new Date().toISOString().split("T")[0],
+            category: "frete",
+            tripId,
+            truckId: data.truckId,
+            driverId: data.driverId,
+            freightEntryId: initialFreight.id,
+          })
+        }
+
         toast({
           title: "Viagem iniciada",
           description: "A viagem foi registrada com sucesso.",

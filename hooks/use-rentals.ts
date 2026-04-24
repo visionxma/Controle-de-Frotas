@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or } from "firebase/firestore"
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, onSnapshot, or, getDocs, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useMachinery } from "./use-machinery"
 import { differenceInDays, parseISO } from "date-fns"
@@ -253,8 +253,17 @@ export function useRentals() {
 
   const deleteRental = async (id: string) => {
     try {
-      const rentalRef = doc(db, "rentals", id)
-      await deleteDoc(rentalRef)
+      // Cascade delete: remove todas as transações vinculadas (rentalId) antes
+      // da locação, num batch atômico. Evita deixar lançamentos órfãos no
+      // Financeiro (que apareciam rotulados "Locação (removida)").
+      const txSnap = await getDocs(
+        query(collection(db, "transactions"), where("rentalId", "==", id)),
+      )
+
+      const batch = writeBatch(db)
+      txSnap.docs.forEach((txDoc) => batch.delete(txDoc.ref))
+      batch.delete(doc(db, "rentals", id))
+      await batch.commit()
       return true
     } catch (error) {
       console.error("Erro ao deletar locação:", error)
