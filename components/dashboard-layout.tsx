@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useTrucks } from "@/hooks/use-trucks"
+import { useMaintenanceAlerts } from "@/hooks/use-maintenance-alerts"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
 
@@ -27,6 +28,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const maxTrucks = Math.max(user?.max_trucks || truckCount, truckCount)
   const isFull = maxTrucks > 0 && truckCount >= maxTrucks
   const progress = maxTrucks > 0 ? Math.min(100, (truckCount / maxTrucks) * 100) : 0
+
+  // Contagem de caminhões com alertas pendentes (manutenção)
+  const { overdue, warnings } = useMaintenanceAlerts(trucks)
+  const overdueTruckIds = new Set(overdue.map((a) => a.truckId))
+  const warningTruckIds = new Set(warnings.map((a) => a.truckId).filter((id) => !overdueTruckIds.has(id)))
+  const trucksWithAlerts = overdueTruckIds.size + warningTruckIds.size
+  const hasOverdueAlerts = overdueTruckIds.size > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,11 +135,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
               <div className="space-y-1">
                 {[
-                  { name: "Caminhões", href: "/trucks", icon: Truck },
+                  {
+                    name: "Caminhões",
+                    href: "/trucks",
+                    icon: Truck,
+                    alertCount: trucksWithAlerts,
+                    alertSeverity: hasOverdueAlerts ? ("danger" as const) : ("warning" as const),
+                  },
                   { name: "Motoristas", href: "/drivers", icon: Users },
                   { name: "Empresas", href: "/empresas", icon: Building2 },
                 ].map((item) => {
                   const isActive = pathname === item.href
+                  const hasAlerts = "alertCount" in item && (item.alertCount ?? 0) > 0
+                  const isDanger = hasAlerts && item.alertSeverity === "danger"
                   return (
                     <Link
                       key={item.name}
@@ -143,20 +159,49 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                           ? "bg-primary/15 text-primary shadow-[0_0_20px_rgba(239,68,68,0.1)] border-l-2 border-primary"
                           : "text-sidebar-foreground/60 hover:text-white hover:bg-white/5"
                       )}
-                      title={isMinimized ? item.name : undefined}
+                      title={
+                        isMinimized
+                          ? hasAlerts
+                            ? `${item.name} — ${item.alertCount} ${item.alertCount === 1 ? "alerta" : "alertas"}`
+                            : item.name
+                          : undefined
+                      }
                       onClick={() => setSidebarOpen(false)}
                     >
-                      <item.icon className={cn(
-                        "transition-transform duration-300 group-hover:scale-110",
-                        isMinimized ? "h-6 w-6" : "h-5 w-5",
-                        isActive ? "text-primary" : "text-sidebar-foreground/40 group-hover:text-white"
-                      )} />
+                      <div className="relative">
+                        <item.icon className={cn(
+                          "transition-transform duration-300 group-hover:scale-110",
+                          isMinimized ? "h-6 w-6" : "h-5 w-5",
+                          isActive ? "text-primary" : "text-sidebar-foreground/40 group-hover:text-white"
+                        )} />
+                        {hasAlerts && isMinimized && (
+                          <span
+                            className={cn(
+                              "absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ring-2 ring-sidebar shadow-lg",
+                              isDanger ? "bg-red-500 animate-pulse" : "bg-amber-500"
+                            )}
+                          />
+                        )}
+                      </div>
                       {!isMinimized && (
                           <span className="transition-all duration-300">
                             {item.name}
                           </span>
                       )}
-                      {isActive && !isMinimized && (
+                      {hasAlerts && !isMinimized && (
+                        <span
+                          className={cn(
+                            "ml-auto flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full px-2 h-5 shadow-md",
+                            isDanger
+                              ? "bg-red-500 text-white shadow-red-500/30"
+                              : "bg-amber-500 text-white shadow-amber-500/30"
+                          )}
+                        >
+                          <span className={cn("h-1.5 w-1.5 rounded-full bg-white", isDanger && "animate-pulse")} />
+                          {item.alertCount}
+                        </span>
+                      )}
+                      {isActive && !isMinimized && !hasAlerts && (
                         <div className="absolute right-3 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                       )}
                     </Link>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -22,16 +23,24 @@ import {
   ChevronRight,
   AlertTriangle,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Wrench,
+  Droplet,
+  CircleDot,
+  Bell,
 } from "lucide-react"
 import type { Truck as TruckType } from "@/hooks/use-trucks"
 import type { Trip } from "@/hooks/use-trips"
 import { useTrips } from "@/hooks/use-trips"
 import { useTransactions } from "@/hooks/use-transactions"
+import { useTrucks } from "@/hooks/use-trucks"
+import { getTruckAlerts, type MaintenanceAlert, type MaintenanceType } from "@/hooks/use-maintenance-alerts"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { TripDetails } from "@/components/trip-details"
+import { cn } from "@/lib/utils"
 
 interface TruckDetailsModalProps {
   truck: TruckType | null
@@ -39,13 +48,51 @@ interface TruckDetailsModalProps {
   onClose: () => void
 }
 
+const MAINTENANCE_FIELD_MAP: Record<MaintenanceType, "lastTireCheckKm" | "lastOilChangeKm" | "lastRevisionKm"> = {
+  tire: "lastTireCheckKm",
+  oil: "lastOilChangeKm",
+  revision: "lastRevisionKm",
+}
+
+const MAINTENANCE_ICON_MAP: Record<MaintenanceType, typeof Wrench> = {
+  tire: CircleDot,
+  oil: Droplet,
+  revision: Wrench,
+}
+
 export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalProps) {
   const { trips } = useTrips()
   const { transactions } = useTransactions()
+  const { updateTruck } = useTrucks()
+  const { toast } = useToast()
+  const searchParams = useSearchParams()
 
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+  const [resettingType, setResettingType] = useState<MaintenanceType | null>(null)
+
+  const initialTab = searchParams.get("tab") === "maintenance" ? "maintenance" : "trips"
 
   if (!truck) return null
+
+  const maintenanceAlerts = getTruckAlerts(truck)
+  const handleMarkMaintenanceDone = async (type: MaintenanceType) => {
+    setResettingType(type)
+    const field = MAINTENANCE_FIELD_MAP[type]
+    const success = await updateTruck(truck.id, { [field]: truck.mileage || 0 } as any)
+    setResettingType(null)
+    if (success) {
+      toast({
+        title: "Manutenção registrada",
+        description: `${type === "tire" ? "Pneu" : type === "oil" ? "Óleo" : "Revisão"} marcada como feita em ${(truck.mileage || 0).toLocaleString("pt-BR")} KM.`,
+      })
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a manutenção.",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Filter trips for this truck
   const truckTrips = trips.filter(trip => trip.truckId === truck.id)
@@ -169,10 +216,19 @@ export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalP
                 </div>
               </div>
 
-              <Tabs defaultValue="trips" className="w-full">
-                <TabsList className="grid w-full max-w-md grid-cols-3 h-11">
+              <Tabs key={`${truck.id}-${initialTab}`} defaultValue={initialTab} className="w-full">
+                <TabsList className="grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4 h-auto sm:h-11">
                   <TabsTrigger value="trips" className="font-bold uppercase text-[10px] tracking-widest">
                     Viagens ({truckTrips.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="maintenance" className="font-bold uppercase text-[10px] tracking-widest gap-1.5">
+                    Manutenção
+                    {maintenanceAlerts.some((a) => a.status !== "ok") && (
+                      <span className={cn(
+                        "h-1.5 w-1.5 rounded-full animate-pulse",
+                        maintenanceAlerts.some((a) => a.status === "overdue") ? "bg-red-500" : "bg-amber-500"
+                      )} />
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="expenses" className="font-bold uppercase text-[10px] tracking-widest">
                     Despesas ({truckExpenses.length})
@@ -250,6 +306,119 @@ export function TruckDetailsModal({ truck, isOpen, onClose }: TruckDetailsModalP
                     </Card>
                   ))}
                 </div>
+                  )}
+                </TabsContent>
+
+                {/* Manutenção */}
+                <TabsContent value="maintenance" className="mt-6">
+                  {maintenanceAlerts.length === 0 ? (
+                    <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed border-border/20">
+                      <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-2">
+                        Nenhum alerta configurado para este caminhão
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        Edite o caminhão e defina os intervalos de pneu, óleo e revisão para acompanhar a manutenção.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {maintenanceAlerts.map((alert) => {
+                        const Icon = MAINTENANCE_ICON_MAP[alert.type]
+                        const isOverdue = alert.status === "overdue"
+                        const isWarning = alert.status === "warning"
+                        const isOk = alert.status === "ok"
+
+                        const colors = isOverdue
+                          ? { bar: "bg-red-500", iconBg: "bg-red-500/10", iconColor: "text-red-600", progress: "bg-red-500", textColor: "text-red-600", label: "Atrasado" }
+                          : isWarning
+                          ? { bar: "bg-amber-500", iconBg: "bg-amber-500/10", iconColor: "text-amber-600", progress: "bg-amber-500", textColor: "text-amber-600", label: "Próximo" }
+                          : { bar: "bg-emerald-500", iconBg: "bg-emerald-500/10", iconColor: "text-emerald-600", progress: "bg-emerald-500", textColor: "text-emerald-600", label: "Em dia" }
+
+                        const progressClamped = Math.min(100, alert.progress)
+                        const remainingLabel = isOverdue
+                          ? `Atrasado em ${Math.abs(alert.kmRemaining).toLocaleString("pt-BR")} KM`
+                          : `Faltam ${alert.kmRemaining.toLocaleString("pt-BR")} KM`
+
+                        return (
+                          <Card
+                            key={alert.type}
+                            className="border-border/40 overflow-hidden bg-white shadow-sm dark:bg-black/40 flex"
+                          >
+                            <div className={cn("w-1 flex-shrink-0", colors.bar)} />
+                            <CardContent className="py-5 px-5 w-full">
+                              <div className="flex flex-col gap-4 h-full">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={cn("p-2.5 rounded-sm", colors.iconBg)}>
+                                      <Icon className={cn("h-5 w-5", colors.iconColor)} />
+                                    </div>
+                                    <div>
+                                      <span className="text-base font-black uppercase tracking-tight block">
+                                        {alert.typeLabel}
+                                      </span>
+                                      <span className={cn("text-[9px] font-black uppercase tracking-widest", colors.textColor)}>
+                                        {colors.label}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <div className="h-2 w-full bg-foreground/5 rounded-full overflow-hidden">
+                                    <div
+                                      className={cn("h-full transition-all", colors.progress)}
+                                      style={{ width: `${progressClamped}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] font-bold">
+                                    <span className="text-muted-foreground">
+                                      {alert.kmDriven.toLocaleString("pt-BR")} / {alert.intervalKm.toLocaleString("pt-BR")} KM
+                                    </span>
+                                    <span className={colors.textColor}>{remainingLabel}</span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/10 text-xs">
+                                  <div>
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
+                                      Última vez
+                                    </span>
+                                    <span className="font-bold">
+                                      {alert.lastServiceKm.toLocaleString("pt-BR")} KM
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
+                                      Atual
+                                    </span>
+                                    <span className="font-bold">
+                                      {alert.currentKm.toLocaleString("pt-BR")} KM
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  size="sm"
+                                  variant={isOk ? "outline" : "default"}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleMarkMaintenanceDone(alert.type)
+                                  }}
+                                  disabled={resettingType === alert.type}
+                                  className={cn(
+                                    "h-9 font-bold text-[10px] uppercase tracking-widest rounded-sm mt-auto",
+                                    !isOk && "bg-primary hover:bg-primary/90 text-white"
+                                  )}
+                                >
+                                  {resettingType === alert.type ? "Registrando..." : "Marcar como feito"}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
                   )}
                 </TabsContent>
 

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { validatePlaca, formatPlaca } from "@/lib/utils-validation"
-import { CheckCircle2, Loader2, TruckIcon } from "lucide-react"
+import { CheckCircle2, Loader2, TruckIcon, Bell } from "lucide-react"
 import type { Truck } from "@/hooks/use-trucks"
 import { useToast } from "@/hooks/use-toast"
 
@@ -30,6 +30,12 @@ export function TruckForm({ truck, onSubmit, onCancel, isLoading }: TruckFormPro
     color: truck?.color || "",
     status: truck?.status || ("active" as const),
     mileage: truck?.mileage || 0,
+    tireAlertKm: truck?.tireAlertKm ?? 0,
+    oilAlertKm: truck?.oilAlertKm ?? 0,
+    revisionAlertKm: truck?.revisionAlertKm ?? 0,
+    lastTireCheckKm: truck?.lastTireCheckKm ?? 0,
+    lastOilChangeKm: truck?.lastOilChangeKm ?? 0,
+    lastRevisionKm: truck?.lastRevisionKm ?? 0,
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -227,6 +233,118 @@ export function TruckForm({ truck, onSubmit, onCancel, isLoading }: TruckFormPro
                 onChange={(e) => handleChange("mileage", parseInt(e.target.value) || 0)}
                 className={getInputClass("mileage")}
               />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border/20">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-sm">
+                <Bell className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-tight">Alertas de Manutenção</h3>
+                <p className="text-[10px] font-medium text-muted-foreground">
+                  Defina o intervalo (em KM) entre cada manutenção. Deixe 0 para desativar o alerta.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 mt-6">
+              <div className="space-y-2">
+                <Label htmlFor="tireAlertKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  Intervalo de Pneu (KM)
+                </Label>
+                <Input
+                  id="tireAlertKm"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="Ex: 40000"
+                  value={formData.tireAlertKm}
+                  onChange={(e) => handleChange("tireAlertKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastTireCheckKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  KM da última troca de Pneu
+                </Label>
+                <Input
+                  id="lastTireCheckKm"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={formData.lastTireCheckKm}
+                  onChange={(e) => handleChange("lastTireCheckKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="oilAlertKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  Intervalo de Óleo (KM)
+                </Label>
+                <Input
+                  id="oilAlertKm"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="Ex: 10000"
+                  value={formData.oilAlertKm}
+                  onChange={(e) => handleChange("oilAlertKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastOilChangeKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  KM da última troca de Óleo
+                </Label>
+                <Input
+                  id="lastOilChangeKm"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={formData.lastOilChangeKm}
+                  onChange={(e) => handleChange("lastOilChangeKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="revisionAlertKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  Intervalo de Revisão (KM)
+                </Label>
+                <Input
+                  id="revisionAlertKm"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="Ex: 20000"
+                  value={formData.revisionAlertKm}
+                  onChange={(e) => handleChange("revisionAlertKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastRevisionKm" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">
+                  KM da última Revisão
+                </Label>
+                <Input
+                  id="lastRevisionKm"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={formData.lastRevisionKm}
+                  onChange={(e) => handleChange("lastRevisionKm", parseInt(e.target.value) || 0)}
+                  className="h-11 rounded-sm border-border/40"
+                />
+              </div>
             </div>
           </div>
 

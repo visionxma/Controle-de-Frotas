@@ -42,6 +42,14 @@ export interface Truck {
   totalFuelLiters?: number // Total de combustível consumido em todas as viagens
   fuelCapacity?: number // Capacidade do tanque em litros
   currentFuelLevel?: number // Nível atual de combustível em litros
+  // Alertas de manutenção (intervalos definidos pelo empresário, em KM)
+  tireAlertKm?: number // Intervalo entre checagens/trocas de pneu
+  oilAlertKm?: number // Intervalo entre trocas de óleo
+  revisionAlertKm?: number // Intervalo entre revisões
+  // KM registrado na última manutenção realizada
+  lastTireCheckKm?: number
+  lastOilChangeKm?: number
+  lastRevisionKm?: number
 }
 
 export function useTrucks() {

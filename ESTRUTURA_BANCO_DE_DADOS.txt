@@ -106,9 +106,27 @@ COLEÇÕES DO FIRESTORE
      totalFuelLiters: number,         // Total de combustível consumido (acumulado)
      fuelCapacity: number,            // Capacidade do tanque em litros
      currentFuelLevel: number,        // Nível atual de combustível
+     // Alertas de manutenção (definidos pelo empresário em KM)
+     tireAlertKm: number,             // Intervalo entre checagens/trocas de pneu (0 = desativado)
+     oilAlertKm: number,              // Intervalo entre trocas de óleo (0 = desativado)
+     revisionAlertKm: number,         // Intervalo entre revisões (0 = desativado)
+     lastTireCheckKm: number,         // KM registrado na última manutenção de pneu
+     lastOilChangeKm: number,         // KM registrado na última troca de óleo
+     lastRevisionKm: number,          // KM registrado na última revisão
      createdAt: timestamp,            // Data de criação
      updatedAt: timestamp             // Data de última atualização
    }
+
+   Alertas de Manutenção:
+   - Empresário define os intervalos por caminhão (cada veículo pode ter intervalo diferente)
+   - Cálculo: kmDriven = mileage - lastXxxKm
+   - Status:
+     * "ok"      → kmDriven < 80% do intervalo
+     * "warning" → kmDriven >= 80% do intervalo
+     * "overdue" → kmDriven >= 100% do intervalo
+   - Marcar como feito: lastXxxKm = mileage atual do caminhão
+   - Cálculo no client (hook use-maintenance-alerts.ts)
+   - Exibição: Dashboard (componente MaintenanceAlerts) + aba "Manutenção" no modal de detalhes
    
    Como é Salvo:
    - addDoc() adiciona novo documento em /trucks

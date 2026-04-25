@@ -8,6 +8,7 @@ import { EnhancedStatsCards } from "@/components/enhanced-stats-cards"
 import { RevenueExpenseChart } from "@/components/revenue-expense-chart"
 import { RecentTransactions } from "@/components/recent-transactions"
 import { TripsOverview } from "@/components/trips-overview"
+import { MaintenanceAlerts } from "@/components/maintenance-alerts"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
 import { Download } from "lucide-react"
@@ -98,6 +99,9 @@ export default function DashboardPage() {
               <TripsOverview truckFilter={selectedTruck} driverFilter={selectedDriver} />
             </div>
           </div>
+
+          {/* Maintenance Alerts */}
+          <MaintenanceAlerts />
 
           {/* Footer Section */}
           <div className="bg-card border border-border/40 rounded-[2.5rem] p-2 shadow-sm">

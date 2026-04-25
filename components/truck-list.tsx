@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2 } from "lucide-react"
+import { Trash2, Bell, ChevronRight } from "lucide-react"
 import type { Truck } from "@/hooks/use-trucks"
 import { PermissionGate } from "@/components/permission-gate"
 import { TruckDetailsModal } from "./truck-details-modal"
@@ -14,6 +14,8 @@ import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants"
 import { useTrips } from "@/hooks/use-trips"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Navigation } from "lucide-react"
+import { getTruckAlerts } from "@/hooks/use-maintenance-alerts"
+import { cn } from "@/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,15 +47,18 @@ export function TruckList({ trucks, onEdit, onDelete, isLoading }: TruckListProp
     return trucks.find(t => t.id === truckIdParam) || null
   }, [truckIdParam, trucks])
 
-  const handleOpenDetails = (truck: Truck) => {
+  const handleOpenDetails = (truck: Truck, tab?: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("truckId", truck.id)
+    if (tab) params.set("tab", tab)
+    else params.delete("tab")
     router.push(`${pathname}?${params.toString()}`)
   }
 
   const handleCloseDetails = () => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete("truckId")
+    params.delete("tab")
     router.push(`${pathname}?${params.toString()}`)
   }
   const { trips } = useTrips()
@@ -89,12 +94,73 @@ export function TruckList({ trucks, onEdit, onDelete, isLoading }: TruckListProp
   return (
     <>
       <div className="responsive-grid gap-4">
-        {trucks.map((truck) => (
-          <Card 
-            key={truck.id} 
-            className="rounded-3xl border-border/40 shadow-sm hover:shadow-md transition-all overflow-hidden bg-card/50 backdrop-blur-sm cursor-pointer hover:border-primary/30"
+        {trucks.map((truck) => {
+          const truckAlerts = getTruckAlerts(truck).filter((a) => a.status !== "ok")
+          const hasOverdue = truckAlerts.some((a) => a.status === "overdue")
+          const hasAlerts = truckAlerts.length > 0
+          return (
+          <Card
+            key={truck.id}
+            className={cn(
+              "rounded-3xl shadow-sm hover:shadow-md transition-all overflow-hidden bg-card/50 backdrop-blur-sm cursor-pointer",
+              hasOverdue
+                ? "border-red-500/40 hover:border-red-500/60 shadow-red-500/5"
+                : hasAlerts
+                ? "border-amber-500/40 hover:border-amber-500/60 shadow-amber-500/5"
+                : "border-border/40 hover:border-primary/30"
+            )}
             onClick={() => handleOpenDetails(truck)}
           >
+            {hasAlerts && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleOpenDetails(truck, "maintenance")
+                }}
+                className={cn(
+                  "group/alert w-full text-left relative px-5 py-3 flex items-center gap-3 overflow-hidden border-b transition-colors",
+                  hasOverdue
+                    ? "bg-gradient-to-r from-red-500/15 via-red-500/8 to-transparent border-red-500/20 hover:from-red-500/25 hover:via-red-500/15"
+                    : "bg-gradient-to-r from-amber-500/15 via-amber-500/8 to-transparent border-amber-500/20 hover:from-amber-500/25 hover:via-amber-500/15"
+                )}
+              >
+                <div
+                  className={cn(
+                    "p-2 rounded-sm flex-shrink-0 shadow-sm",
+                    hasOverdue ? "bg-red-500/20" : "bg-amber-500/20"
+                  )}
+                >
+                  <Bell
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      hasOverdue ? "text-red-600 animate-pulse" : "text-amber-600"
+                    )}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={cn(
+                      "text-[10px] font-black uppercase tracking-widest leading-tight",
+                      hasOverdue ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-500"
+                    )}
+                  >
+                    {hasOverdue
+                      ? `${truckAlerts.length} ${truckAlerts.length === 1 ? "Manutenção Atrasada" : "Manutenções Atrasadas"}`
+                      : `${truckAlerts.length} ${truckAlerts.length === 1 ? "Manutenção Próxima" : "Manutenções Próximas"}`}
+                  </p>
+                  <p className="text-[9px] font-bold text-foreground/60 truncate mt-0.5">
+                    {truckAlerts.map((a) => a.typeLabel).join(" · ")}
+                  </p>
+                </div>
+                <ChevronRight
+                  className={cn(
+                    "h-4 w-4 flex-shrink-0 transition-transform group-hover/alert:translate-x-1",
+                    hasOverdue ? "text-red-600" : "text-amber-600"
+                  )}
+                />
+              </button>
+            )}
             <CardHeader className="pb-3 px-6 pt-6">
               <div className="flex items-start justify-between">
                 <CardTitle className="text-xl font-bold tracking-tight uppercase">{truck.plate}</CardTitle>
@@ -209,7 +275,8 @@ export function TruckList({ trucks, onEdit, onDelete, isLoading }: TruckListProp
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
       </div>
 
       <TruckDetailsModal 
