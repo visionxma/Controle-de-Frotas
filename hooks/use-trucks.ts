@@ -33,7 +33,7 @@ export interface Truck {
   model: string
   year: number
   color: string
-  status: "active" | "maintenance" | "inactive"
+  status: "active" | "maintenance" | "inactive" | "in_route"
   mileage: number
   userId: string
   adminId?: string

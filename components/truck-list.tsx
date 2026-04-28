@@ -165,9 +165,11 @@ export function TruckList({ trucks, onEdit, onDelete, isLoading }: TruckListProp
               <div className="flex items-start justify-between">
                 <CardTitle className="text-xl font-bold tracking-tight uppercase">{truck.plate}</CardTitle>
                 <div className="flex flex-col gap-2 items-end">
-                  <Badge variant={STATUS_COLORS[truck.status]} className="rounded-full px-3 font-bold uppercase text-[10px]">
-                    {STATUS_LABELS[truck.status]}
-                  </Badge>
+                  {truck.status !== "in_route" && (
+                    <Badge variant={STATUS_COLORS[truck.status]} className="rounded-full px-3 font-bold uppercase text-[10px]">
+                      {STATUS_LABELS[truck.status]}
+                    </Badge>
+                  )}
                   {(() => {
                     const activeTrip = trips.find(t => t.truckId === truck.id && t.status === "in_progress")
                     if (activeTrip) {

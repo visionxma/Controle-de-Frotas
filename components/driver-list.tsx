@@ -108,9 +108,11 @@ export function DriverList({ drivers, onEdit, onDelete, isLoading }: DriverListP
               <div className="flex items-start justify-between">
                 <CardTitle className="text-xl font-bold tracking-tight uppercase leading-tight">{driver.name}</CardTitle>
                 <div className="flex flex-col gap-2 items-end">
-                  <Badge variant={STATUS_COLORS[driver.status]} className="rounded-full px-3 font-bold uppercase text-[10px]">
-                    {STATUS_LABELS[driver.status]}
-                  </Badge>
+                  {driver.status !== "in_route" && (
+                    <Badge variant={STATUS_COLORS[driver.status]} className="rounded-full px-3 font-bold uppercase text-[10px]">
+                      {STATUS_LABELS[driver.status]}
+                    </Badge>
+                  )}
                   {(() => {
                     const activeTrip = trips.find(t => t.driverId === driver.id && t.status === "in_progress")
                     if (activeTrip) {

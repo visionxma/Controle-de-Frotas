@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTrucks } from "@/hooks/use-trucks"
 import { useDrivers } from "@/hooks/use-drivers"
+import { useTrips } from "@/hooks/use-trips"
 import { CityAutocomplete } from "./city-autocomplete"
 import { CurrencyInput } from "./currency-input"
 import { TruckIcon, User, MapPin, Calendar, Clock, Package, CheckCircle2, ChevronRight, DollarSign } from "lucide-react"
@@ -26,6 +27,7 @@ interface TripFormProps {
 export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
   const { trucks } = useTrucks()
   const { drivers } = useDrivers()
+  const { trips } = useTrips()
 
   const [formData, setFormData] = useState({
     truckId: "",
@@ -52,8 +54,28 @@ export function TripForm({ onSubmit, onCancel, isLoading }: TripFormProps) {
     }))
   }, [])
 
-  const availableTrucks = trucks.filter((truck) => truck.status === "active")
-  const availableDrivers = drivers.filter((driver) => driver.status === "active")
+  // Disponível = não está bloqueado manualmente (manutenção/inativo/suspenso)
+  // E não tem viagem em andamento. Inclui status "in_route" sem viagem ativa
+  // para auto-curar registros que ficaram presos em estado inválido.
+  const trucksWithActiveTrip = new Set(
+    trips.filter((t) => t.status === "in_progress").map((t) => t.truckId),
+  )
+  const driversWithActiveTrip = new Set(
+    trips.filter((t) => t.status === "in_progress").map((t) => t.driverId),
+  )
+
+  const availableTrucks = trucks.filter(
+    (truck) =>
+      truck.status !== "maintenance" &&
+      truck.status !== "inactive" &&
+      !trucksWithActiveTrip.has(truck.id),
+  )
+  const availableDrivers = drivers.filter(
+    (driver) =>
+      driver.status !== "inactive" &&
+      driver.status !== "suspended" &&
+      !driversWithActiveTrip.has(driver.id),
+  )
 
   const handleTruckChange = (truckId: string) => {
     const selectedTruck = trucks.find((truck) => truck.id === truckId)

@@ -3,6 +3,7 @@ export const STATUS_LABELS = {
   inactive: "Inativo",
   suspended: "Suspenso",
   maintenance: "Manutenção",
+  in_route: "Em Rota",
 } as const;
 
 export const STATUS_COLORS = {
@@ -10,4 +11,5 @@ export const STATUS_COLORS = {
   inactive: "secondary",
   suspended: "destructive",
   maintenance: "secondary",
+  in_route: "secondary",
 } as const;

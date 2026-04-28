@@ -180,6 +180,22 @@ export function useTrips() {
       }
 
       const docRef = await addDoc(collection(db, "trips"), docData)
+
+      // Marca caminhão e motorista como "em rota" para que não fiquem
+      // disponíveis para outras viagens enquanto esta estiver em andamento.
+      if (tripData.truckId) {
+        await updateDoc(doc(db, "trucks", tripData.truckId), {
+          status: "in_route",
+          updatedAt: new Date(),
+        })
+      }
+      if (tripData.driverId) {
+        await updateDoc(doc(db, "drivers", tripData.driverId), {
+          status: "in_route",
+          updatedAt: new Date(),
+        })
+      }
+
       return docRef.id
     } catch (error) {
       return null
@@ -253,6 +269,20 @@ export function useTrips() {
       if (endData.refuelingLiters > 0) {
         await incrementTotalFuel(currentTrip.truckId, endData.refuelingLiters)
         await updateFuelLevel(currentTrip.truckId, endData.refuelingLiters)
+      }
+
+      // Libera caminhão e motorista para novas viagens.
+      if (currentTrip.truckId) {
+        await updateDoc(doc(db, "trucks", currentTrip.truckId), {
+          status: "active",
+          updatedAt: new Date(),
+        })
+      }
+      if (currentTrip.driverId) {
+        await updateDoc(doc(db, "drivers", currentTrip.driverId), {
+          status: "active",
+          updatedAt: new Date(),
+        })
       }
 
       return true
@@ -349,6 +379,23 @@ export function useTrips() {
           truckUpdates.currentFuelLevel = increment(liters)
         }
         batch.update(truckRef, truckUpdates)
+      }
+
+      // Se a viagem ainda estava em andamento, libera caminhão e motorista
+      // (caso já estivesse concluída, ambos já estão "active").
+      if (tripData?.status === "in_progress") {
+        if (tripData.truckId) {
+          batch.update(doc(db, "trucks", tripData.truckId), {
+            status: "active",
+            updatedAt: new Date(),
+          })
+        }
+        if (tripData.driverId) {
+          batch.update(doc(db, "drivers", tripData.driverId), {
+            status: "active",
+            updatedAt: new Date(),
+          })
+        }
       }
 
       await batch.commit()

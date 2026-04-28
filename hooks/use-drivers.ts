@@ -59,7 +59,7 @@ export interface Driver {
   email?: string
   address?: string
   birthDate: string
-  status: "active" | "inactive" | "suspended"
+  status: "active" | "inactive" | "suspended" | "in_route"
   commissionPercentage?: number
   permissions?: DriverPermissions
   userId: string
