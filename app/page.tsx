@@ -11,8 +11,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!isLoading && !isAuthenticating) {
       if (user) {
-        console.log("[v0] HomePage - usuário autenticado, redirecionando para dashboard")
-        router.push("/dashboard")
+        const target = user.isSuperAdmin ? "/admin" : "/dashboard"
+        console.log(`[v0] HomePage - usuário autenticado, redirecionando para ${target}`)
+        router.push(target)
       } else {
         console.log("[v0] HomePage - usuário não autenticado, redirecionando para login")
         router.push("/login")

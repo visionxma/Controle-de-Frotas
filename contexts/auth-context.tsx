@@ -18,6 +18,7 @@ import { initializeApp, deleteApp } from "firebase/app"
 import { auth, app as firebaseApp } from "@/lib/firebase"
 import { doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, limit, getFirestore } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { isSuperAdminEmail } from "@/lib/admin-config"
 
 interface User {
   id: string
@@ -43,6 +44,9 @@ interface User {
   // Enquanto essa data é futura, ProtectedRoute libera o sistema
   // mesmo com subscription_status !== "active".
   pending_boleto_until?: Date | null
+  // Super-admin global: enxerga métricas de todas as empresas em /admin
+  // e ignora exigência de assinatura ativa.
+  isSuperAdmin?: boolean
 }
 
 interface AuthContextType {
@@ -132,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 stripe_subscription_id: userData.stripe_subscription_id ?? null,
                 onboarding_completed: userData.onboarding_completed ?? false,
                 pending_boleto_until: pendingBoletoUntil,
+                isSuperAdmin: userData.isSuperAdmin === true || isSuperAdminEmail(firebaseUser.email),
               })
 
               // Se a assinatura está ativa mas max_trucks não foi gravado (ex: webhook atrasado),
@@ -148,7 +153,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   .catch(() => null)
               }
             } else {
-              // Sem documento na coleção users — não é um admin válido
+              // Sem documento na coleção users — pode ser super-admin a meio
+              // do bootstrap. Tenta reparar via endpoint server-side e
+              // aguarda o snapshot disparar de novo quando o doc aparecer.
+              if (isSuperAdminEmail(firebaseUser.email)) {
+                fetch("/api/admin/bootstrap", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: firebaseUser.email }),
+                }).catch((e) => console.error("[auth] bootstrap reparo falhou:", e))
+                // Não desloga — espera o snapshot reabrir com o doc reparado
+                return
+              }
               signOut(auth)
               setUser(null)
             }
@@ -183,6 +199,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         if (!auth) {
           throw new Error("Firebase Auth não está configurado")
+        }
+
+        // Bootstrap server-side do super-admin antes de tentar o login.
+        // O endpoint usa o Admin SDK (ignora rules), garante que o usuário
+        // existe no Firebase Auth com SUPER_ADMIN_PASSWORD e que o doc
+        // users/{uid} tenha role: "admin" e isSuperAdmin: true.
+        // Idempotente — pode ser chamado em todo login sem efeitos colaterais.
+        if (isSuperAdminEmail(email)) {
+          try {
+            const res = await fetch("/api/admin/bootstrap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            })
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}))
+              console.error("[auth] bootstrap super-admin falhou:", data?.error)
+            }
+          } catch (bootstrapErr) {
+            console.error("[auth] bootstrap super-admin erro de rede:", bootstrapErr)
+          }
         }
 
         const userCredential = await signInWithEmailAndPassword(auth, email, password)

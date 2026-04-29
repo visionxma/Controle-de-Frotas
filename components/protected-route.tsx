@@ -19,6 +19,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const hasBoletoGrace =
     !!user?.pending_boleto_until && user.pending_boleto_until.getTime() > Date.now()
   const canAccess = user?.subscription_status === "active" || hasBoletoGrace
+  const isSuperAdmin = user?.isSuperAdmin === true
 
   useEffect(() => {
     if (isLoading || isAuthenticating) return
@@ -33,10 +34,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return
     }
 
+    // Super-admin não tem assinatura — redireciona para o painel global
+    if (isSuperAdmin) {
+      router.push("/admin")
+      return
+    }
+
     if (!canAccess) {
       router.push("/plans")
     }
-  }, [user, isLoading, isAuthenticating, router, canAccess])
+  }, [user, isLoading, isAuthenticating, router, canAccess, isSuperAdmin])
 
   if (isLoading || isAuthenticating) {
     return (
@@ -49,7 +56,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (!user || user.role !== "admin" || !canAccess) {
+  if (!user || user.role !== "admin" || isSuperAdmin || !canAccess) {
     return null
   }
 

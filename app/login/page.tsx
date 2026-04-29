@@ -19,6 +19,7 @@ import {
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { isSuperAdminEmail } from "@/lib/admin-config"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -43,7 +44,7 @@ export default function LoginPage() {
 
     if (success) {
       toast.success("Login realizado com sucesso!")
-      router.push("/dashboard")
+      router.push(isSuperAdminEmail(email) ? "/admin" : "/dashboard")
     } else {
       setError("Credenciais inválidas ou você não tem permissão para acessar esta versão")
       toast.error("Acesso negado. Apenas administradores podem acessar a versão web.")
