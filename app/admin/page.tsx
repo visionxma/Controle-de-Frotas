@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { SuperAdminRoute } from "@/components/super-admin-route"
+import { AdminCharts } from "@/components/admin-charts"
 import { useAuth } from "@/contexts/auth-context"
 import { auth } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -487,6 +488,9 @@ function AdminPanel() {
                 />
               </div>
             </section>
+
+            {/* Gráficos */}
+            <AdminCharts metrics={metrics} />
 
             {/* Top admins */}
             <section className="space-y-4">
